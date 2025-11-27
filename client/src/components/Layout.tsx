@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, Link } from 'wouter';
-import { LayoutDashboard, PlusCircle, Search, User, LogOut, Lock } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Search, User, LogOut, Lock, Settings } from 'lucide-react';
 import { useApp } from '../lib/store';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -180,6 +180,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <span className="text-[10px] font-medium">Buscar</span>
             </a>
           </Link>
+          {currentUser?.role === 'admin' && (
+            <Link href="/admin">
+              <a className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/admin' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+                <Settings className="h-6 w-6" />
+                <span className="text-[10px] font-medium">Administrar</span>
+              </a>
+            </Link>
+          )}
         </div>
       </nav>
     </div>

@@ -10,6 +10,7 @@ import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
 import RegisterPage from "@/pages/RegisterPage";
 import SearchPage from "@/pages/SearchPage";
+import AdminPage from "@/pages/AdminPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { currentUser } = useApp();
@@ -42,6 +43,9 @@ function Router() {
       </Route>
       <Route path="/search">
         <ProtectedRoute component={SearchPage} />
+      </Route>
+      <Route path="/admin">
+        <ProtectedRoute component={AdminPage} />
       </Route>
       <Route component={NotFound} />
     </Switch>

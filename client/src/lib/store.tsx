@@ -36,6 +36,7 @@ interface AppState {
   documents: Document[];
   patients: Patient[];
   events: DocumentEvent[];
+  users: User[];
   login: (userId: string) => void;
   logout: () => void;
   registerDocument: (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
@@ -51,13 +52,19 @@ interface AppState {
   getDocumentHistory: (docId: string) => DocumentEvent[];
   getPatientDocuments: (patientName: string) => { patient: Patient | undefined, docs: Document[] };
   requestDocument: (docId: string, reason: string) => void;
+  addUser: (name: string, sectorId: string, role: 'admin' | 'staff') => void;
+  resetUserPassword: (userId: string) => void;
+  deactivateUser: (userId: string) => void;
+  addSector: (name: string, code: string) => void;
+  disableSector: (sectorId: string) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [sectors] = useState<Sector[]>(MOCK_SECTORS);
+  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [sectors, setSectors] = useState<Sector[]>(MOCK_SECTORS);
   const [documents, setDocuments] = useState<Document[]>(MOCK_DOCS);
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [events, setEvents] = useState<DocumentEvent[]>(MOCK_EVENTS);
@@ -68,7 +75,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = (userId: string) => {
-    const user = MOCK_USERS.find(u => u.id === userId);
+    const user = users.find(u => u.id === userId);
     if (user) {
       setCurrentUser(user);
     }
@@ -291,6 +298,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setEvents(prev => [...prev, newEvent]);
   };
 
+  const addUser = (name: string, sectorId: string, role: 'admin' | 'staff') => {
+    const newUser: User = {
+      id: `u${Date.now()}`,
+      name,
+      sectorId,
+      role,
+      active: true
+    };
+    setUsers(prev => [...prev, newUser]);
+  };
+
+  const resetUserPassword = (userId: string) => {
+    // In mockup mode, just log the action
+    console.log('Password reset for user:', userId);
+  };
+
+  const deactivateUser = (userId: string) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, active: false } : u));
+  };
+
+  const addSector = (name: string, code: string) => {
+    const newSector: Sector = {
+      id: `s${Date.now()}`,
+      name,
+      code,
+      active: true
+    };
+    setSectors(prev => [...prev, newSector]);
+  };
+
+  const disableSector = (sectorId: string) => {
+    setSectors(prev => prev.map(s => s.id === sectorId ? { ...s, active: false } : s));
+  };
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -298,6 +339,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       documents,
       patients,
       events,
+      users,
       login,
       logout,
       registerDocument,
@@ -312,7 +354,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getOutgoingPendingDocuments,
       getDocumentHistory,
       getPatientDocuments,
-      requestDocument
+      requestDocument,
+      addUser,
+      resetUserPassword,
+      deactivateUser,
+      addSector,
+      disableSector
     }}>
       {children}
     </AppContext.Provider>

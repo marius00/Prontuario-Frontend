@@ -3,6 +3,7 @@ export type Sector = {
   id: string;
   name: string;
   code: string;
+  active?: boolean;
 };
 
 export type User = {
@@ -10,6 +11,7 @@ export type User = {
   name: string;
   sectorId: string;
   role: 'admin' | 'staff';
+  active?: boolean;
 };
 
 export type Patient = {
