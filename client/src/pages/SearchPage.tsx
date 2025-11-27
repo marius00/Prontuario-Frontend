@@ -19,6 +19,7 @@ export default function SearchPage() {
   const [searchType, setSearchType] = useState<'doc' | 'patient'>('doc');
   const [requestDocId, setRequestDocId] = useState<string | null>(null);
   const [requestReason, setRequestReason] = useState('');
+  const [historyDocId, setHistoryDocId] = useState<string | null>(null);
 
   const filteredDocs = documents.filter(d => 
     d.id.toLowerCase().includes(query.toLowerCase()) || 
@@ -83,16 +84,10 @@ export default function SearchPage() {
                 doc={doc} 
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
                 patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
+                showMenu
+                onViewHistory={setHistoryDocId}
                 onRequest={setRequestDocId}
               />
-              <div className="mt-2 ml-4 pl-4 border-l-2 border-dashed border-muted-foreground/20 space-y-1">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Histórico</div>
-                {getDocumentHistory(doc.id).slice(0, 3).map(event => (
-                   <div key={event.id} className="text-xs text-muted-foreground">
-                     <span className="font-mono">{format(new Date(event.timestamp), 'dd/MM HH:mm')}</span> - {event.type} ({getSectorName(event.sectorId)})
-                   </div>
-                ))}
-              </div>
             </div>
           ))}
         </TabsContent>
@@ -137,6 +132,37 @@ export default function SearchPage() {
           })}
         </TabsContent>
       </Tabs>
+
+      {/* History Dialog */}
+      <Dialog open={!!historyDocId} onOpenChange={(open) => !open && setHistoryDocId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Histórico do Documento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            {historyDocId && getDocumentHistory(historyDocId).map(event => (
+              <div key={event.id} className="p-3 bg-muted rounded border">
+                <div className="flex justify-between items-start mb-1">
+                  <span className="text-sm font-semibold capitalize">{event.type}</span>
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {format(new Date(event.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">{getSectorName(event.sectorId)}</p>
+                {event.metadata?.reason && (
+                  <p className="text-xs text-muted-foreground mt-2 italic">{event.metadata.reason}</p>
+                )}
+              </div>
+            ))}
+            {historyDocId && getDocumentHistory(historyDocId).length === 0 && (
+              <p className="text-center text-sm text-muted-foreground">Nenhum evento registrado.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryDocId(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Request Document Dialog */}
       <Dialog open={!!requestDocId} onOpenChange={(open) => !open && setRequestDocId(null)}>

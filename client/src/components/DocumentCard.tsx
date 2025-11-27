@@ -3,7 +3,8 @@ import { Document, DocumentEvent, Sector } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MapPin, Clock, Truck, CheckCircle, AlertCircle, Undo2, FileText, XCircle, Edit, Send } from 'lucide-react';
+import { MapPin, Clock, Truck, CheckCircle, AlertCircle, Undo2, FileText, XCircle, Edit, Menu } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -14,16 +15,18 @@ interface DocumentCardProps {
   patientAtendimento?: string;
   showActions?: boolean;
   isCreator?: boolean;
+  showMenu?: boolean;
   onDispatch?: (id: string) => void;
   onReceive?: (id: string) => void;
   onReject?: (id: string) => void;
   onEdit?: (id: string) => void;
+  onViewHistory?: (id: string) => void;
   onRequest?: (id: string) => void;
   onUndo?: (id: string) => void;
   onCancelDispatch?: (id: string) => void;
 }
 
-export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, onDispatch, onReceive, onReject, onEdit, onRequest, onUndo, onCancelDispatch }: DocumentCardProps) {
+export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch }: DocumentCardProps) {
   const statusColors = {
     'registered': 'border-l-primary',
     'in-transit': 'border-l-accent',
@@ -62,10 +65,26 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
             </Button>
           )}
           {statusBadges[doc.status]}
-          {onRequest && (
-            <Button onClick={() => onRequest(doc.id)} variant="ghost" size="icon" className="shrink-0 h-7 w-7 text-muted-foreground hover:text-foreground">
-              <Send className="h-4 w-4" />
-            </Button>
+          {showMenu && (onViewHistory || onRequest) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="shrink-0 h-7 w-7 text-muted-foreground hover:text-foreground">
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onViewHistory && (
+                  <DropdownMenuItem onClick={() => onViewHistory(doc.id)}>
+                    Visualizar Histórico
+                  </DropdownMenuItem>
+                )}
+                {onRequest && (
+                  <DropdownMenuItem onClick={() => onRequest(doc.id)}>
+                    Solicitar
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </CardHeader>
