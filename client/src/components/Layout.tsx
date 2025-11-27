@@ -45,19 +45,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/">
             <a className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
               <LayoutDashboard className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Dashboard</span>
+              <span className="text-[10px] font-medium">Painel</span>
             </a>
           </Link>
           <Link href="/register">
             <a className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/register' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
               <PlusCircle className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Register</span>
+              <span className="text-[10px] font-medium">Registrar</span>
             </a>
           </Link>
           <Link href="/search">
             <a className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/search' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
               <Search className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Search</span>
+              <span className="text-[10px] font-medium">Buscar</span>
             </a>
           </Link>
         </div>

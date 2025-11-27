@@ -20,10 +20,12 @@ export type Patient = {
 
 export type DocumentStatus = 'registered' | 'in-transit' | 'received' | 'archived';
 
+export type DocumentType = 'Ficha' | 'Prontuario';
+
 export type DocumentEvent = {
   id: string;
   documentId: string;
-  type: 'created' | 'dispatched' | 'received' | 'rejected' | 'undo';
+  type: 'created' | 'dispatched' | 'received' | 'rejected' | 'undo' | 'cancelled';
   timestamp: string;
   userId: string;
   sectorId: string;
@@ -37,8 +39,10 @@ export type DocumentEvent = {
 export type Document = {
   id: string;
   title: string;
+  type: DocumentType;
   patientId: string;
   currentSectorId: string; // Where it is now
   status: DocumentStatus;
   createdAt: string;
+  lastDispatchedBySectorId?: string; // Track who sent it last
 };

@@ -8,11 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Inbox, Send, Truck } from 'lucide-react';
+import { Search, Inbox, Send, Truck, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
-  const { currentUser, getDocumentsBySector, getIncomingDocuments, patients, receiveDocument, dispatchDocument, undoLastAction, sectors } = useApp();
+  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, undoLastAction, sectors } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
   
@@ -28,16 +28,23 @@ export default function DashboardPage() {
 
   const myDocs = getDocumentsBySector(currentUser.sectorId);
   const incomingDocs = getIncomingDocuments(currentUser.sectorId);
+  const outgoingDocs = getOutgoingPendingDocuments(currentUser.sectorId);
 
-  const filteredMyDocs = myDocs.filter(d => d.title.toLowerCase().includes(filter.toLowerCase()) || d.id.toLowerCase().includes(filter.toLowerCase()));
-  const filteredIncoming = incomingDocs.filter(d => d.title.toLowerCase().includes(filter.toLowerCase()) || d.id.toLowerCase().includes(filter.toLowerCase()));
+  const filterDocs = (docs: any[]) => docs.filter(d => 
+    d.title.toLowerCase().includes(filter.toLowerCase()) || 
+    d.id.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  const filteredMyDocs = filterDocs(myDocs);
+  const filteredIncoming = filterDocs(incomingDocs);
+  const filteredOutgoing = filterDocs(outgoingDocs);
 
   const handleDispatch = () => {
     if (dispatchDocId && targetSectorId) {
       dispatchDocument(dispatchDocId, targetSectorId);
       toast({
-        title: "Document Dispatched",
-        description: "The document is now in transit.",
+        title: "Documento Enviado",
+        description: "O documento está agora em trânsito.",
       });
       setDispatchDocId(null);
       setTargetSectorId('');
@@ -47,10 +54,18 @@ export default function DashboardPage() {
   const handleReceive = (id: string) => {
     receiveDocument(id);
     toast({
-      title: "Document Received",
-      description: "Document has been added to your sector inventory.",
+      title: "Documento Recebido",
+      description: "Documento adicionado ao inventário do setor.",
       variant: "default", 
       className: "bg-green-600 text-white border-none"
+    });
+  };
+
+  const handleCancelDispatch = (id: string) => {
+    cancelDispatch(id);
+    toast({
+      title: "Envio Cancelado",
+      description: "O documento retornou ao inventário.",
     });
   };
 
@@ -58,8 +73,8 @@ export default function DashboardPage() {
     if (undoDocId && undoReason) {
       undoLastAction(undoDocId, undoReason);
       toast({
-        title: "Action Undone",
-        description: "The document status has been reverted.",
+        title: "Ação Desfeita",
+        description: "O status do documento foi revertido.",
       });
       setUndoDocId(null);
       setUndoReason('');
@@ -71,7 +86,7 @@ export default function DashboardPage() {
       <div className="relative">
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <Input 
-          placeholder="Filter documents..." 
+          placeholder="Filtrar documentos..." 
           className="pl-9 bg-card"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
@@ -79,23 +94,24 @@ export default function DashboardPage() {
       </div>
 
       <Tabs defaultValue="inventory" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="inventory">Inventory ({myDocs.length})</TabsTrigger>
-          <TabsTrigger value="incoming" className="relative">
-            Incoming
+        <TabsList className="grid w-full grid-cols-3 mb-4">
+          <TabsTrigger value="inventory" className="text-[10px] sm:text-sm">Inventário ({myDocs.length})</TabsTrigger>
+          <TabsTrigger value="incoming" className="relative text-[10px] sm:text-sm">
+            Entrada
             {incomingDocs.length > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white animate-pulse">
                 {incomingDocs.length}
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="outgoing" className="text-[10px] sm:text-sm">Enviados ({outgoingDocs.length})</TabsTrigger>
         </TabsList>
         
         <TabsContent value="inventory" className="space-y-3">
           {filteredMyDocs.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
               <Inbox className="h-10 w-10 mx-auto mb-2 opacity-20" />
-              <p>No documents in sector inventory.</p>
+              <p>Nenhum documento no inventário.</p>
             </div>
           ) : (
             filteredMyDocs.map(doc => (
@@ -117,7 +133,7 @@ export default function DashboardPage() {
               <div className="h-10 w-10 mx-auto mb-2 opacity-20 flex items-center justify-center rounded-full border-2 border-dashed">
                 <Truck className="h-5 w-5" />
               </div>
-              <p>No incoming documents.</p>
+              <p>Nenhum documento chegando.</p>
             </div>
           ) : (
             filteredIncoming.map(doc => (
@@ -132,23 +148,44 @@ export default function DashboardPage() {
             ))
           )}
         </TabsContent>
+
+        <TabsContent value="outgoing" className="space-y-3">
+          {filteredOutgoing.length === 0 ? (
+             <div className="text-center py-10 text-muted-foreground">
+              <div className="h-10 w-10 mx-auto mb-2 opacity-20 flex items-center justify-center rounded-full border-2 border-dashed">
+                <Upload className="h-5 w-5" />
+              </div>
+              <p>Nenhum envio pendente.</p>
+            </div>
+          ) : (
+            filteredOutgoing.map(doc => (
+              <DocumentCard 
+                key={doc.id} 
+                doc={doc} 
+                patientName={patients.find(p => p.id === doc.patientId)?.name}
+                showActions
+                onCancelDispatch={handleCancelDispatch}
+              />
+            ))
+          )}
+        </TabsContent>
       </Tabs>
 
       {/* Dispatch Dialog */}
       <Dialog open={!!dispatchDocId} onOpenChange={(open) => !open && setDispatchDocId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Dispatch Document</DialogTitle>
+            <DialogTitle>Enviar Documento</DialogTitle>
             <DialogDescription>
-              Select the destination sector for this document.
+              Selecione o setor de destino para este documento.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Destination Sector</Label>
+              <Label>Setor de Destino</Label>
               <Select value={targetSectorId} onValueChange={setTargetSectorId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select sector..." />
+                  <SelectValue placeholder="Selecione o setor..." />
                 </SelectTrigger>
                 <SelectContent>
                   {sectors.filter(s => s.id !== currentUser.sectorId).map(s => (
@@ -159,10 +196,10 @@ export default function DashboardPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDispatchDocId(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDispatchDocId(null)}>Cancelar</Button>
             <Button onClick={handleDispatch} disabled={!targetSectorId}>
               <Send className="mr-2 h-4 w-4" />
-              Send
+              Enviar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -172,25 +209,25 @@ export default function DashboardPage() {
       <Dialog open={!!undoDocId} onOpenChange={(open) => !open && setUndoDocId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Report Issue / Undo</DialogTitle>
+            <DialogTitle>Reportar Problema / Desfazer</DialogTitle>
             <DialogDescription>
-              Please explain why you are undoing this action or rejecting the document.
+              Por favor, explique por que você está desfazendo esta ação ou rejeitando o documento.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Reason</Label>
+              <Label>Motivo</Label>
               <Textarea 
-                placeholder="e.g., Mistake click, Wrong document..." 
+                placeholder="ex: Clique errado, Documento incorreto..." 
                 value={undoReason}
                 onChange={(e) => setUndoReason(e.target.value)}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setUndoDocId(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setUndoDocId(null)}>Cancelar</Button>
             <Button onClick={handleUndo} variant="destructive" disabled={!undoReason}>
-              Confirm Undo
+              Confirmar Desfazer
             </Button>
           </DialogFooter>
         </DialogContent>

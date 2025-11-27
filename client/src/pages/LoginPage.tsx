@@ -20,10 +20,10 @@ export default function LoginPage() {
   // We'll hardcode "mock users" associated with sectors for the demo dropdown
   
   const mockUsers = [
-    { id: 'u1', name: 'Alice (Admissions)', sectorId: 's1' },
-    { id: 'u2', name: 'Bob (Radiology)', sectorId: 's2' },
-    { id: 'u3', name: 'Charlie (Cardiology)', sectorId: 's3' },
-    { id: 'u4', name: 'Dana (Archives)', sectorId: 's4' },
+    { id: 'u1', name: 'Alice (Admissão)', sectorId: 's1' },
+    { id: 'u2', name: 'Bob (Radiologia)', sectorId: 's2' },
+    { id: 'u3', name: 'Carlos (Cardiologia)', sectorId: 's3' },
+    { id: 'u4', name: 'Daniela (Arquivo)', sectorId: 's4' },
   ];
 
   const handleLogin = (e: React.FormEvent) => {
@@ -31,13 +31,13 @@ export default function LoginPage() {
     setError('');
     
     if (!selectedUser || !password) {
-      setError('Please enter both user and password');
+      setError('Por favor, insira usuário e senha');
       return;
     }
 
     // Mock password check
     if (password !== 'password') {
-      setError('Invalid password (hint: use "password")');
+      setError('Senha inválida (dica: use "password")');
       return;
     }
 
@@ -55,15 +55,15 @@ export default function LoginPage() {
             <Building2 className="h-6 w-6 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold">DocLocate</CardTitle>
-          <CardDescription>Secure Document Tracking System</CardDescription>
+          <CardDescription>Sistema de Rastreamento de Documentos</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="user">Select User Role</Label>
+              <Label htmlFor="user">Selecionar Usuário</Label>
               <Select onValueChange={setSelectedUser}>
                 <SelectTrigger id="user" className="h-12">
-                  <SelectValue placeholder="Select a user..." />
+                  <SelectValue placeholder="Selecione um usuário..." />
                 </SelectTrigger>
                 <SelectContent>
                   {mockUsers.map(user => (
@@ -79,13 +79,13 @@ export default function LoginPage() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Senha</Label>
               <Input 
                 id="password" 
                 type="password" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
+                placeholder="Digite sua senha"
                 className="h-12"
               />
             </div>
@@ -97,10 +97,10 @@ export default function LoginPage() {
             )}
 
             <Button type="submit" className="w-full h-12 text-lg">
-              Login
+              Entrar
             </Button>
             <div className="text-center text-xs text-muted-foreground mt-4">
-              Offline-First PWA Ready
+              Pronto para uso Offline (PWA)
             </div>
           </form>
         </CardContent>

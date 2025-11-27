@@ -1,32 +1,33 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Sector, Document, Patient, DocumentEvent } from './types';
+import { User, Sector, Document, Patient, DocumentEvent, DocumentType } from './types';
 import { format } from 'date-fns';
 
 // Mock Data
 const MOCK_SECTORS: Sector[] = [
-  { id: 's1', name: 'Admissions', code: 'ADM' },
-  { id: 's2', name: 'Radiology', code: 'RAD' },
-  { id: 's3', name: 'Cardiology', code: 'CAR' },
-  { id: 's4', name: 'Archives', code: 'ARC' },
+  { id: 's1', name: 'Admissão', code: 'ADM' },
+  { id: 's2', name: 'Radiologia', code: 'RAD' },
+  { id: 's3', name: 'Cardiologia', code: 'CAR' },
+  { id: 's4', name: 'Arquivo', code: 'ARC' },
 ];
 
 const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'Alice Admin', sectorId: 's1', role: 'admin' },
-  { id: 'u2', name: 'Bob Radiology', sectorId: 's2', role: 'staff' },
-  { id: 'u3', name: 'Charlie Cardio', sectorId: 's3', role: 'staff' },
+  { id: 'u1', name: 'Alice (Admissão)', sectorId: 's1', role: 'admin' },
+  { id: 'u2', name: 'Bob (Radiologia)', sectorId: 's2', role: 'staff' },
+  { id: 'u3', name: 'Carlos (Cardiologia)', sectorId: 's3', role: 'staff' },
+  { id: 'u4', name: 'Daniela (Arquivo)', sectorId: 's4', role: 'staff' },
 ];
 
 const MOCK_PATIENTS: Patient[] = [
-  { id: 'p1', name: 'John Doe', birthdate: '1980-05-15' },
-  { id: 'p2', name: 'Jane Smith', birthdate: '1992-11-23' },
+  { id: 'p1', name: 'João Silva', birthdate: '1980-05-15' },
+  { id: 'p2', name: 'Maria Santos', birthdate: '1992-11-23' },
 ];
 
 const MOCK_DOCS: Document[] = [
-  { id: 'd1', title: 'X-Ray Referral', patientId: 'p1', currentSectorId: 's1', status: 'registered', createdAt: new Date().toISOString() },
+  { id: 'DOC-1001', title: 'Raio-X Torax', type: 'Ficha', patientId: 'p1', currentSectorId: 's1', status: 'registered', createdAt: new Date().toISOString() },
 ];
 
 const MOCK_EVENTS: DocumentEvent[] = [
-  { id: 'e1', documentId: 'd1', type: 'created', timestamp: new Date().toISOString(), userId: 'u1', sectorId: 's1' }
+  { id: 'e1', documentId: 'DOC-1001', type: 'created', timestamp: new Date().toISOString(), userId: 'u1', sectorId: 's1' }
 ];
 
 interface AppState {
@@ -37,13 +38,15 @@ interface AppState {
   events: DocumentEvent[];
   login: (userId: string) => void;
   logout: () => void;
-  registerDocument: (title: string, patientName: string, patientDob: string) => void;
+  registerDocument: (id: string, title: string, type: DocumentType, patientName: string, patientDob: string) => void;
   dispatchDocument: (docId: string, targetSectorId: string) => void;
+  cancelDispatch: (docId: string) => void;
   receiveDocument: (docId: string) => void;
   rejectDocument: (docId: string, reason: string) => void;
   undoLastAction: (docId: string, reason: string) => void;
   getDocumentsBySector: (sectorId: string) => Document[];
   getIncomingDocuments: (sectorId: string) => Document[]; // Docs sent TO this sector but not received
+  getOutgoingPendingDocuments: (sectorId: string) => Document[]; // Docs sent FROM this sector not yet received
   getDocumentHistory: (docId: string) => DocumentEvent[];
   getPatientDocuments: (patientName: string, birthdate: string) => { patient: Patient | undefined, docs: Document[] };
 }
@@ -51,14 +54,12 @@ interface AppState {
 const AppContext = createContext<AppState | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  // Initialize state from "LocalStorage" simulation or defaults
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [sectors] = useState<Sector[]>(MOCK_SECTORS);
   const [documents, setDocuments] = useState<Document[]>(MOCK_DOCS);
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [events, setEvents] = useState<DocumentEvent[]>(MOCK_EVENTS);
 
-  // Simulate loading user from session
   useEffect(() => {
     // const storedUser = localStorage.getItem('doc_user');
     // if (storedUser) setCurrentUser(JSON.parse(storedUser));
@@ -68,19 +69,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const user = MOCK_USERS.find(u => u.id === userId);
     if (user) {
       setCurrentUser(user);
-      // localStorage.setItem('doc_user', JSON.stringify(user));
     }
   };
 
   const logout = () => {
     setCurrentUser(null);
-    // localStorage.removeItem('doc_user');
   };
 
-  const registerDocument = (title: string, patientName: string, patientDob: string) => {
+  const registerDocument = (id: string, title: string, type: DocumentType, patientName: string, patientDob: string) => {
     if (!currentUser) return;
 
-    // Find or create patient
     let patient = patients.find(p => p.name.toLowerCase() === patientName.toLowerCase() && p.birthdate === patientDob);
     if (!patient) {
       patient = {
@@ -92,8 +90,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     const newDoc: Document = {
-      id: `DOC-${Math.floor(Math.random() * 10000)}`,
+      id: id,
       title,
+      type,
       patientId: patient.id,
       currentSectorId: currentUser.sectorId,
       status: 'registered',
@@ -116,16 +115,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const dispatchDocument = (docId: string, targetSectorId: string) => {
     if (!currentUser) return;
 
-    setDocuments(prev => prev.map(d => 
-      d.id === docId 
-        ? { ...d, status: 'in-transit' } // Note: currentSectorId remains the sender until received? Or we track "target"? 
-        // Simplified: currentSectorId implies "possession". When in transit, who has it? 
-        // Let's say: it's "in-transit" FROM current TO target.
-        // We need to store the target somewhere. For simplicity, let's update currentSectorId to targetSectorId immediately but mark status 'in-transit'.
-        // This means it "shows up" in the target sector's list but with status 'in-transit'.
-        : d
-    ));
-
     const newEvent: DocumentEvent = {
       id: `e${Date.now()}`,
       documentId: docId,
@@ -136,13 +125,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       metadata: { toSectorId: targetSectorId }
     };
 
-    // Update document location to target, but status is in-transit
     setDocuments(prev => prev.map(d => 
-      d.id === docId ? { ...d, currentSectorId: targetSectorId, status: 'in-transit' } : d
+      d.id === docId ? { 
+        ...d, 
+        currentSectorId: targetSectorId, 
+        status: 'in-transit',
+        lastDispatchedBySectorId: currentUser.sectorId
+      } : d
     ));
 
     setEvents(prev => [...prev, newEvent]);
   };
+
+  const cancelDispatch = (docId: string) => {
+    if (!currentUser) return;
+    
+    // Cancel dispatch implies bringing it back to 'registered' (or whatever status it was) and ownership back to sender
+    // Assuming only the sender can cancel.
+    
+    const doc = documents.find(d => d.id === docId);
+    if (!doc || doc.lastDispatchedBySectorId !== currentUser.sectorId) return;
+
+    const newEvent: DocumentEvent = {
+      id: `e${Date.now()}`,
+      documentId: docId,
+      type: 'cancelled',
+      timestamp: new Date().toISOString(),
+      userId: currentUser.id,
+      sectorId: currentUser.sectorId,
+      metadata: { reason: 'Dispatch cancelled by sender' }
+    };
+
+    setDocuments(prev => prev.map(d => 
+      d.id === docId ? { 
+        ...d, 
+        currentSectorId: currentUser.sectorId, // Reclaim ownership
+        status: 'registered',
+        lastDispatchedBySectorId: undefined
+      } : d
+    ));
+
+    setEvents(prev => [...prev, newEvent]);
+  }
 
   const receiveDocument = (docId: string) => {
     if (!currentUser) return;
@@ -165,12 +189,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const rejectDocument = (docId: string, reason: string) => {
     if (!currentUser) return;
     
-    // If rejected, maybe it goes back? Or stays in limbo? 
-    // User said: "Mark a document as not received, with a reason."
-    // This implies it stays in 'in-transit' or goes to a 'rejected' state?
-    // Let's mark as 'in-transit' (stuck) or specific 'rejected' status?
-    // Let's assume it stays in the list but flagged.
-
     const newEvent: DocumentEvent = {
       id: `e${Date.now()}`,
       documentId: docId,
@@ -181,23 +199,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       metadata: { reason }
     };
     setEvents(prev => [...prev, newEvent]);
-    // Status update? Maybe back to sender? 
-    // For now, let's just log the event. The doc is still technically "at" this sector (pending) but rejected.
   };
 
   const undoLastAction = (docId: string, reason: string) => {
     if (!currentUser) return;
     
-    // This is complex. Simplified: Just add an event saying "Undo".
-    // And revert status if possible.
-    
     const doc = documents.find(d => d.id === docId);
     if (!doc) return;
 
     let newStatus = doc.status;
-    // Simple state machine reversion
     if (doc.status === 'received') newStatus = 'in-transit';
-    if (doc.status === 'in-transit') newStatus = 'registered'; // Assuming it was dispatched from here? Tricky.
+    if (doc.status === 'in-transit') newStatus = 'registered';
 
     setDocuments(prev => prev.map(d => 
       d.id === docId ? { ...d, status: newStatus } : d
@@ -223,6 +235,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return documents.filter(d => d.currentSectorId === sectorId && d.status === 'in-transit');
   };
 
+  const getOutgoingPendingDocuments = (sectorId: string) => {
+    return documents.filter(d => d.lastDispatchedBySectorId === sectorId && d.status === 'in-transit');
+  };
+
   const getDocumentHistory = (docId: string) => {
     return events.filter(e => e.documentId === docId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   };
@@ -245,11 +261,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       logout,
       registerDocument,
       dispatchDocument,
+      cancelDispatch,
       receiveDocument,
       rejectDocument,
       undoLastAction,
       getDocumentsBySector,
       getIncomingDocuments,
+      getOutgoingPendingDocuments,
       getDocumentHistory,
       getPatientDocuments
     }}>

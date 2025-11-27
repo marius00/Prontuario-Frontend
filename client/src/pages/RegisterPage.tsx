@@ -6,11 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { FilePlus, UserPlus } from 'lucide-react';
+import { FilePlus, UserPlus, FileText } from 'lucide-react';
+import { DocumentType } from '@/lib/types';
 
 interface RegisterForm {
+  id: string;
   title: string;
+  type: DocumentType;
   patientName: string;
   patientDob: string;
 }
@@ -19,13 +23,18 @@ export default function RegisterPage() {
   const { registerDocument } = useApp();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>();
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<RegisterForm>({
+    defaultValues: {
+      type: 'Ficha'
+    }
+  });
+  const docType = watch('type');
 
   const onSubmit = (data: RegisterForm) => {
-    registerDocument(data.title, data.patientName, data.patientDob);
+    registerDocument(data.id, data.title, data.type, data.patientName, data.patientDob);
     toast({
-      title: "Document Registered",
-      description: `${data.title} for ${data.patientName} has been created.`,
+      title: "Documento Registrado",
+      description: `${data.type} ${data.id} para ${data.patientName} foi criado.`,
     });
     setLocation('/');
   };
@@ -36,39 +45,39 @@ export default function RegisterPage() {
         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
           <PlusCircleIcon className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">Register New</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Novo Registro</h1>
       </div>
 
       <Card className="border-t-4 border-t-primary">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-muted-foreground" />
-            Patient Details
+            Dados do Paciente
           </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="patientName">Full Name</Label>
+                <Label htmlFor="patientName">Nome Completo</Label>
                 <Input 
                   id="patientName" 
-                  placeholder="e.g., John Doe" 
+                  placeholder="ex: João Silva" 
                   {...register('patientName', { required: true })}
                   className="h-12 text-lg"
                 />
-                {errors.patientName && <span className="text-destructive text-xs">Required</span>}
+                {errors.patientName && <span className="text-destructive text-xs">Obrigatório</span>}
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="patientDob">Date of Birth</Label>
+                <Label htmlFor="patientDob">Data de Nascimento</Label>
                 <Input 
                   id="patientDob" 
                   type="date" 
                   {...register('patientDob', { required: true })}
                   className="h-12 text-lg"
                 />
-                {errors.patientDob && <span className="text-destructive text-xs">Required</span>}
+                {errors.patientDob && <span className="text-destructive text-xs">Obrigatório</span>}
               </div>
             </div>
 
@@ -77,22 +86,47 @@ export default function RegisterPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 mb-2">
                 <FilePlus className="h-5 w-5 text-muted-foreground" />
-                <Label className="text-base font-semibold">Document Info</Label>
+                <Label className="text-base font-semibold">Dados do Documento</Label>
               </div>
+              
               <div className="space-y-2">
-                <Label htmlFor="title">Document Title</Label>
+                <Label htmlFor="id">ID do Documento</Label>
+                <Input 
+                  id="id" 
+                  placeholder="ex: DOC-12345" 
+                  {...register('id', { required: true })}
+                  className="h-12 text-lg font-mono"
+                />
+                {errors.id && <span className="text-destructive text-xs">Obrigatório</span>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="type">Tipo de Documento</Label>
+                <Select onValueChange={(v) => setValue('type', v as DocumentType)} defaultValue={docType}>
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Ficha">Ficha</SelectItem>
+                    <SelectItem value="Prontuario">Prontuário</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="title">Título / Descrição</Label>
                 <Input 
                   id="title" 
-                  placeholder="e.g., X-Ray Referral, Lab Results" 
+                  placeholder="ex: Raio-X Torax, Exames de Sangue" 
                   {...register('title', { required: true })}
                   className="h-12 text-lg"
                 />
-                {errors.title && <span className="text-destructive text-xs">Required</span>}
+                {errors.title && <span className="text-destructive text-xs">Obrigatório</span>}
               </div>
             </div>
 
             <Button type="submit" className="w-full h-12 text-lg mt-6">
-              Register Document
+              Registrar Documento
             </Button>
           </form>
         </CardContent>
