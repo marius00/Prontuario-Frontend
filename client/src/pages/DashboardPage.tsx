@@ -12,7 +12,7 @@ import { Search, Inbox, Send, Truck, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
-  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors } = useApp();
+  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
   
@@ -179,6 +179,8 @@ export default function DashboardPage() {
                 patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
                 showActions
                 isCreator={doc.createdByUserId === currentUser.id}
+                sectors={sectors}
+                events={events}
                 onDispatch={setDispatchDocId}
                 onEdit={handleEdit}
                 onUndo={setUndoDocId}
@@ -203,6 +205,8 @@ export default function DashboardPage() {
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
                 patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
                 showActions
+                sectors={sectors}
+                events={events}
                 onReceive={handleReceive}
                 onReject={setRejectDocId}
                 onUndo={setUndoDocId}
@@ -227,6 +231,8 @@ export default function DashboardPage() {
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
                 patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
                 showActions
+                sectors={sectors}
+                events={events}
                 onCancelDispatch={handleCancelDispatch}
               />
             ))

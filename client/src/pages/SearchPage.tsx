@@ -13,7 +13,7 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SearchPage() {
-  const { documents, patients, currentUser, getDocumentHistory, sectors, requestDocument } = useApp();
+  const { documents, patients, currentUser, getDocumentHistory, sectors, events, requestDocument } = useApp();
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState<'doc' | 'patient'>('doc');
@@ -85,6 +85,8 @@ export default function SearchPage() {
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
                 patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
                 showMenu
+                sectors={sectors}
+                events={events}
                 onViewHistory={setHistoryDocId}
                 onRequest={setRequestDocId}
               />

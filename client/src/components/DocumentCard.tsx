@@ -16,6 +16,8 @@ interface DocumentCardProps {
   showActions?: boolean;
   isCreator?: boolean;
   showMenu?: boolean;
+  sectors?: Sector[];
+  events?: DocumentEvent[];
   onDispatch?: (id: string) => void;
   onReceive?: (id: string) => void;
   onReject?: (id: string) => void;
@@ -26,7 +28,22 @@ interface DocumentCardProps {
   onCancelDispatch?: (id: string) => void;
 }
 
-export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch }: DocumentCardProps) {
+export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch }: DocumentCardProps) {
+  const getSectorName = (sectorId: string) => {
+    return sectors.find(s => s.id === sectorId)?.name || sectorId;
+  };
+
+  const getDocumentEvents = () => {
+    return events.filter(e => e.documentId === doc.id).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  };
+
+  const getReceivedEvent = () => {
+    return getDocumentEvents().find(e => e.type === 'received');
+  };
+
+  const getMostRecentDispatchedEvent = () => {
+    return getDocumentEvents().find(e => e.type === 'dispatched');
+  };
   const statusColors = {
     'registered': 'border-l-primary',
     'in-transit': 'border-l-accent',
@@ -89,12 +106,24 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-2 space-y-3">
-        <div className="space-y-1">
+        <div className="space-y-2">
           <p className="text-sm font-medium text-foreground">{patientName}</p>
           <div className="flex items-center text-xs text-muted-foreground gap-2">
-            <Clock className="h-3 w-3" />
-            <span>{formatDistanceToNow(new Date(doc.updatedAt || doc.createdAt), { locale: ptBR })} atrás</span>
+            <MapPin className="h-3 w-3" />
+            <span>{getSectorName(doc.currentSectorId)}</span>
           </div>
+          {doc.status === 'in-transit' && getMostRecentDispatchedEvent() && (
+            <div className="flex items-center text-xs text-muted-foreground gap-2">
+              <Truck className="h-3 w-3" />
+              <span>Enviado para {getSectorName(getMostRecentDispatchedEvent()!.metadata?.toSectorId || '')} {formatDistanceToNow(new Date(getMostRecentDispatchedEvent()!.timestamp), { locale: ptBR })} atrás</span>
+            </div>
+          )}
+          {(doc.status === 'received' || doc.status === 'in-transit') && getReceivedEvent() && (
+            <div className="flex items-center text-xs text-muted-foreground gap-2">
+              <CheckCircle className="h-3 w-3" />
+              <span>Recebido {formatDistanceToNow(new Date(getReceivedEvent()!.timestamp), { locale: ptBR })} atrás</span>
+            </div>
+          )}
         </div>
 
         {showActions && (
