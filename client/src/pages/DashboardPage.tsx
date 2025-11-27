@@ -30,10 +30,15 @@ export default function DashboardPage() {
   const incomingDocs = getIncomingDocuments(currentUser.sectorId);
   const outgoingDocs = getOutgoingPendingDocuments(currentUser.sectorId);
 
-  const filterDocs = (docs: any[]) => docs.filter(d => 
-    d.title.toLowerCase().includes(filter.toLowerCase()) || 
-    d.id.toLowerCase().includes(filter.toLowerCase())
-  );
+  const filterDocs = (docs: any[]) => docs.filter(d => {
+    const patient = patients.find(p => p.id === d.patientId);
+    return (
+      d.title.toLowerCase().includes(filter.toLowerCase()) || 
+      d.id.toLowerCase().includes(filter.toLowerCase()) ||
+      (patient && patient.name.toLowerCase().includes(filter.toLowerCase())) ||
+      (patient && patient.numeroAtendimento.includes(filter))
+    );
+  });
 
   const filteredMyDocs = filterDocs(myDocs);
   const filteredIncoming = filterDocs(incomingDocs);
@@ -86,7 +91,7 @@ export default function DashboardPage() {
       <div className="relative">
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <Input 
-          placeholder="Filtrar documentos..." 
+          placeholder="Filtrar por Nome, Atendimento..." 
           className="pl-9 bg-card"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
@@ -119,6 +124,7 @@ export default function DashboardPage() {
                 key={doc.id} 
                 doc={doc} 
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
+                patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
                 showActions
                 onDispatch={setDispatchDocId}
                 onUndo={setUndoDocId}
@@ -141,6 +147,7 @@ export default function DashboardPage() {
                 key={doc.id} 
                 doc={doc} 
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
+                patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
                 showActions
                 onReceive={handleReceive}
                 onUndo={setUndoDocId}
@@ -163,6 +170,7 @@ export default function DashboardPage() {
                 key={doc.id} 
                 doc={doc} 
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
+                patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
                 showActions
                 onCancelDispatch={handleCancelDispatch}
               />

@@ -63,6 +63,7 @@ export default function SearchPage() {
               <DocumentCard 
                 doc={doc} 
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
+                patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
               />
               <div className="mt-2 ml-4 pl-4 border-l-2 border-dashed border-muted-foreground/20">
                 <div className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Histórico</div>
@@ -104,7 +105,7 @@ export default function SearchPage() {
                           </span>
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                          <span className="font-mono">{doc.id}</span>
+                          <span className="font-mono">{patient.numeroAtendimento}</span>
                           <span>Atualizado: {format(new Date(doc.updatedAt), 'dd/MM HH:mm')}</span>
                         </div>
                       </div>

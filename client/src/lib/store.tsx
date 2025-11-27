@@ -38,7 +38,7 @@ interface AppState {
   events: DocumentEvent[];
   login: (userId: string) => void;
   logout: () => void;
-  registerDocument: (id: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
+  registerDocument: (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   dispatchDocument: (docId: string, targetSectorId: string) => void;
   cancelDispatch: (docId: string) => void;
   receiveDocument: (docId: string) => void;
@@ -76,7 +76,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(null);
   };
 
-  const registerDocument = (id: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => {
+  const registerDocument = (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => {
     if (!currentUser) return;
 
     let patient = patients.find(p => p.name.toLowerCase() === patientName.toLowerCase() && p.numeroAtendimento === numeroAtendimento);
@@ -90,7 +90,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     const newDoc: Document = {
-      id: id,
+      id: `DOC-${Math.floor(Math.random() * 100000)}`,
       title,
       type,
       patientId: patient.id,

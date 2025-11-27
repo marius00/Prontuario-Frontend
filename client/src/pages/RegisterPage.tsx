@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useApp } from '@/lib/store';
 import { useLocation } from 'wouter';
@@ -12,7 +12,6 @@ import { FilePlus, UserPlus, FileText } from 'lucide-react';
 import { DocumentType } from '@/lib/types';
 
 interface RegisterForm {
-  id: string;
   title: string;
   type: DocumentType;
   patientName: string;
@@ -31,10 +30,10 @@ export default function RegisterPage() {
   const docType = watch('type');
 
   const onSubmit = (data: RegisterForm) => {
-    registerDocument(data.id, data.title, data.type, data.patientName, data.numeroAtendimento);
+    registerDocument(data.title, data.type, data.patientName, data.numeroAtendimento);
     toast({
       title: "Documento Registrado",
-      description: `${data.type} ${data.id} para ${data.patientName} foi criado.`,
+      description: `${data.type} para ${data.patientName} foi criado.`,
     });
     setLocation('/');
   };
@@ -90,17 +89,6 @@ export default function RegisterPage() {
                 <Label className="text-base font-semibold">Dados do Documento</Label>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="id">ID do Documento</Label>
-                <Input 
-                  id="id" 
-                  placeholder="ex: DOC-12345" 
-                  {...register('id', { required: true })}
-                  className="h-12 text-lg font-mono"
-                />
-                {errors.id && <span className="text-destructive text-xs">Obrigatório</span>}
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="type">Tipo de Documento</Label>
                 <Select onValueChange={(v) => setValue('type', v as DocumentType)} defaultValue={docType}>

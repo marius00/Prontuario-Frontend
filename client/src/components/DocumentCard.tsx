@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 interface DocumentCardProps {
   doc: Document;
   patientName?: string;
+  patientAtendimento?: string;
   showActions?: boolean;
   onDispatch?: (id: string) => void;
   onReceive?: (id: string) => void;
@@ -18,7 +19,7 @@ interface DocumentCardProps {
   onCancelDispatch?: (id: string) => void;
 }
 
-export function DocumentCard({ doc, patientName, showActions, onDispatch, onReceive, onUndo, onCancelDispatch }: DocumentCardProps) {
+export function DocumentCard({ doc, patientName, patientAtendimento, showActions, onDispatch, onReceive, onUndo, onCancelDispatch }: DocumentCardProps) {
   const statusColors = {
     'registered': 'border-l-primary',
     'in-transit': 'border-l-accent',
@@ -45,7 +46,7 @@ export function DocumentCard({ doc, patientName, showActions, onDispatch, onRece
           <div className="flex items-center gap-2">
             {typeBadges[doc.type]}
             <CardTitle className="text-sm font-medium text-muted-foreground font-mono tracking-tight">
-              {doc.id}
+              Atend: {patientAtendimento || 'N/A'}
             </CardTitle>
           </div>
           <h3 className="font-semibold text-lg leading-tight">{doc.title || 'Sem Título'}</h3>
