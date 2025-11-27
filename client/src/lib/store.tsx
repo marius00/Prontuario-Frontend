@@ -50,6 +50,7 @@ interface AppState {
   getOutgoingPendingDocuments: (sectorId: string) => Document[]; // Docs sent FROM this sector not yet received
   getDocumentHistory: (docId: string) => DocumentEvent[];
   getPatientDocuments: (patientName: string) => { patient: Patient | undefined, docs: Document[] };
+  requestDocument: (docId: string, reason: string) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -274,6 +275,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { patient, docs };
   };
 
+  const requestDocument = (docId: string, reason: string) => {
+    if (!currentUser) return;
+
+    const newEvent: DocumentEvent = {
+      id: `e${Date.now()}`,
+      documentId: docId,
+      type: 'created',
+      timestamp: new Date().toISOString(),
+      userId: currentUser.id,
+      sectorId: currentUser.sectorId,
+      metadata: { reason }
+    };
+
+    setEvents(prev => [...prev, newEvent]);
+  };
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -294,7 +311,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getIncomingDocuments,
       getOutgoingPendingDocuments,
       getDocumentHistory,
-      getPatientDocuments
+      getPatientDocuments,
+      requestDocument
     }}>
       {children}
     </AppContext.Provider>

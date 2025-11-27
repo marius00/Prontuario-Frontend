@@ -2,16 +2,23 @@ import React, { useState } from 'react';
 import { useApp } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search as SearchIcon, FileText, User } from 'lucide-react';
+import { Search as SearchIcon, FileText, User, Send } from 'lucide-react';
 import { DocumentCard } from '@/components/DocumentCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SearchPage() {
-  const { documents, patients, getDocumentHistory, sectors } = useApp();
+  const { documents, patients, currentUser, getDocumentHistory, sectors, requestDocument } = useApp();
+  const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState<'doc' | 'patient'>('doc');
+  const [requestDocId, setRequestDocId] = useState<string | null>(null);
+  const [requestReason, setRequestReason] = useState('');
 
   const filteredDocs = documents.filter(d => 
     d.id.toLowerCase().includes(query.toLowerCase()) || 
@@ -25,6 +32,18 @@ export default function SearchPage() {
 
   const getSectorName = (sectorId: string) => {
     return sectors.find(s => s.id === sectorId)?.name || sectorId;
+  };
+
+  const handleRequestDocument = () => {
+    if (requestDocId && requestReason) {
+      requestDocument(requestDocId, requestReason);
+      toast({
+        title: "Solicitação Enviada",
+        description: "Sua solicitação foi registrada com sucesso.",
+      });
+      setRequestDocId(null);
+      setRequestReason('');
+    }
   };
 
   return (
@@ -65,13 +84,19 @@ export default function SearchPage() {
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
                 patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
               />
-              <div className="mt-2 ml-4 pl-4 border-l-2 border-dashed border-muted-foreground/20">
-                <div className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Histórico</div>
+              <div className="mt-2 ml-4 pl-4 border-l-2 border-dashed border-muted-foreground/20 space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Histórico</div>
                 {getDocumentHistory(doc.id).slice(0, 3).map(event => (
-                   <div key={event.id} className="text-xs text-muted-foreground mb-1">
+                   <div key={event.id} className="text-xs text-muted-foreground">
                      <span className="font-mono">{format(new Date(event.timestamp), 'dd/MM HH:mm')}</span> - {event.type} ({getSectorName(event.sectorId)})
                    </div>
                 ))}
+                <div className="flex justify-end pt-2">
+                  <Button onClick={() => setRequestDocId(doc.id)} variant="outline" size="sm" className="gap-2">
+                    <Send className="h-3.5 w-3.5" />
+                    Solicitar
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
@@ -117,6 +142,41 @@ export default function SearchPage() {
           })}
         </TabsContent>
       </Tabs>
+
+      {/* Request Document Dialog */}
+      <Dialog open={!!requestDocId} onOpenChange={(open) => !open && setRequestDocId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Solicitar Documento</DialogTitle>
+            <DialogDescription>
+              Complete a solicitação fornecendo o motivo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Seu Setor</Label>
+              <div className="h-10 px-3 py-2 border rounded-md bg-muted flex items-center text-sm font-medium">
+                {currentUser ? getSectorName(currentUser.sectorId) : 'N/A'}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Motivo da Solicitação *</Label>
+              <Textarea 
+                placeholder="Explique por que você precisa deste documento..."
+                value={requestReason}
+                onChange={(e) => setRequestReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRequestDocId(null)}>Cancelar</Button>
+            <Button onClick={handleRequestDocument} disabled={!requestReason}>
+              <Send className="mr-2 h-4 w-4" />
+              Enviar Solicitação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
