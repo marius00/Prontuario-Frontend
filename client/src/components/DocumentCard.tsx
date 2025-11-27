@@ -15,11 +15,12 @@ interface DocumentCardProps {
   showActions?: boolean;
   onDispatch?: (id: string) => void;
   onReceive?: (id: string) => void;
+  onReject?: (id: string) => void;
   onUndo?: (id: string) => void;
   onCancelDispatch?: (id: string) => void;
 }
 
-export function DocumentCard({ doc, patientName, patientAtendimento, showActions, onDispatch, onReceive, onUndo, onCancelDispatch }: DocumentCardProps) {
+export function DocumentCard({ doc, patientName, patientAtendimento, showActions, onDispatch, onReceive, onReject, onUndo, onCancelDispatch }: DocumentCardProps) {
   const statusColors = {
     'registered': 'border-l-primary',
     'in-transit': 'border-l-accent',
@@ -77,14 +78,23 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
               </Button>
             )}
             {doc.status === 'in-transit' && onReceive && (
-              <div className="flex gap-2 w-full">
-                <Button onClick={() => onReceive(doc.id)} className="flex-1 bg-green-600 hover:bg-green-700" size="sm">
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Receber
-                </Button>
+              <div className="flex flex-col gap-2 w-full">
+                <div className="flex gap-2">
+                  <Button onClick={() => onReceive(doc.id)} className="flex-1 bg-green-600 hover:bg-green-700" size="sm">
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Receber
+                  </Button>
+                  {onReject && (
+                    <Button onClick={() => onReject(doc.id)} variant="outline" size="sm" className="flex-1 border-destructive/50 text-destructive hover:bg-destructive/10">
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Rejeitar
+                    </Button>
+                  )}
+                </div>
                 {onUndo && (
-                  <Button onClick={() => onUndo(doc.id)} variant="outline" size="icon" className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10">
-                    <AlertCircle className="h-4 w-4" />
+                  <Button onClick={() => onUndo(doc.id)} variant="ghost" size="sm" className="w-full text-muted-foreground hover:text-destructive h-8 text-xs">
+                    <AlertCircle className="mr-2 h-3 w-3" />
+                    Desfazer
                   </Button>
                 )}
               </div>

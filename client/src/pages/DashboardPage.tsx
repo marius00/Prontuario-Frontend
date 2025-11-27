@@ -12,13 +12,17 @@ import { Search, Inbox, Send, Truck, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
-  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, undoLastAction, sectors } = useApp();
+  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, undoLastAction, sectors } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
   
   // Dispatch Dialog State
   const [dispatchDocId, setDispatchDocId] = useState<string | null>(null);
   const [targetSectorId, setTargetSectorId] = useState<string>('');
+  
+  // Reject Dialog State
+  const [rejectDocId, setRejectDocId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
   
   // Undo Dialog State
   const [undoDocId, setUndoDocId] = useState<string | null>(null);
@@ -72,6 +76,19 @@ export default function DashboardPage() {
       title: "Envio Cancelado",
       description: "O documento retornou ao inventário.",
     });
+  };
+
+  const handleReject = () => {
+    if (rejectDocId) {
+      rejectDocument(rejectDocId, rejectReason);
+      toast({
+        title: "Documento Rejeitado",
+        description: rejectReason ? `Rejeitado com observação.` : "Rejeitado.",
+        variant: "destructive"
+      });
+      setRejectDocId(null);
+      setRejectReason('');
+    }
   };
 
   const handleUndo = () => {
@@ -150,6 +167,7 @@ export default function DashboardPage() {
                 patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
                 showActions
                 onReceive={handleReceive}
+                onReject={setRejectDocId}
                 onUndo={setUndoDocId}
               />
             ))
@@ -213,20 +231,48 @@ export default function DashboardPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Undo/Reject Dialog */}
+      {/* Reject Dialog */}
+      <Dialog open={!!rejectDocId} onOpenChange={(open) => !open && setRejectDocId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rejeitar Documento</DialogTitle>
+            <DialogDescription>
+              Adicione uma descrição opcional para justificar a rejeição.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Descrição (Opcional)</Label>
+              <Textarea 
+                placeholder="ex: Documento danificado, Já recebido, Informações incorretas..." 
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDocId(null)}>Cancelar</Button>
+            <Button onClick={handleReject} variant="destructive">
+              Confirmar Rejeição
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Undo Dialog */}
       <Dialog open={!!undoDocId} onOpenChange={(open) => !open && setUndoDocId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Reportar Problema / Desfazer</DialogTitle>
+            <DialogTitle>Desfazer Ação</DialogTitle>
             <DialogDescription>
-              Por favor, explique por que você está desfazendo esta ação ou rejeitando o documento.
+              Por favor, explique por que você está desfazendo esta ação.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Motivo</Label>
               <Textarea 
-                placeholder="ex: Clique errado, Documento incorreto..." 
+                placeholder="ex: Clique errado, Setor incorreto..." 
                 value={undoReason}
                 onChange={(e) => setUndoReason(e.target.value)}
               />
