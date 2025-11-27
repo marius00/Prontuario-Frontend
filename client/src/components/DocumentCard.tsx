@@ -48,7 +48,7 @@ export function DocumentCard({ doc, patientName, showActions, onDispatch, onRece
               {doc.id}
             </CardTitle>
           </div>
-          <h3 className="font-semibold text-lg leading-tight">{doc.title}</h3>
+          <h3 className="font-semibold text-lg leading-tight">{doc.title || 'Sem Título'}</h3>
         </div>
         {statusBadges[doc.status]}
       </CardHeader>
@@ -57,7 +57,7 @@ export function DocumentCard({ doc, patientName, showActions, onDispatch, onRece
           <p className="text-sm font-medium text-foreground">{patientName}</p>
           <div className="flex items-center text-xs text-muted-foreground gap-2">
             <Clock className="h-3 w-3" />
-            <span>{formatDistanceToNow(new Date(doc.createdAt), { locale: ptBR })} atrás</span>
+            <span>{formatDistanceToNow(new Date(doc.updatedAt || doc.createdAt), { locale: ptBR })} atrás</span>
           </div>
         </div>
 

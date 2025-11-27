@@ -18,12 +18,12 @@ const MOCK_USERS: User[] = [
 ];
 
 const MOCK_PATIENTS: Patient[] = [
-  { id: 'p1', name: 'João Silva', birthdate: '1980-05-15' },
-  { id: 'p2', name: 'Maria Santos', birthdate: '1992-11-23' },
+  { id: 'p1', name: 'João Silva', numeroAtendimento: '12345' },
+  { id: 'p2', name: 'Maria Santos', numeroAtendimento: '67890' },
 ];
 
 const MOCK_DOCS: Document[] = [
-  { id: 'DOC-1001', title: 'Raio-X Torax', type: 'Ficha', patientId: 'p1', currentSectorId: 's1', status: 'registered', createdAt: new Date().toISOString() },
+  { id: 'DOC-1001', title: 'Raio-X Torax', type: 'Ficha', patientId: 'p1', currentSectorId: 's1', status: 'registered', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 ];
 
 const MOCK_EVENTS: DocumentEvent[] = [
@@ -38,7 +38,7 @@ interface AppState {
   events: DocumentEvent[];
   login: (userId: string) => void;
   logout: () => void;
-  registerDocument: (id: string, title: string, type: DocumentType, patientName: string, patientDob: string) => void;
+  registerDocument: (id: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   dispatchDocument: (docId: string, targetSectorId: string) => void;
   cancelDispatch: (docId: string) => void;
   receiveDocument: (docId: string) => void;
@@ -48,7 +48,7 @@ interface AppState {
   getIncomingDocuments: (sectorId: string) => Document[]; // Docs sent TO this sector but not received
   getOutgoingPendingDocuments: (sectorId: string) => Document[]; // Docs sent FROM this sector not yet received
   getDocumentHistory: (docId: string) => DocumentEvent[];
-  getPatientDocuments: (patientName: string, birthdate: string) => { patient: Patient | undefined, docs: Document[] };
+  getPatientDocuments: (patientName: string) => { patient: Patient | undefined, docs: Document[] };
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -76,15 +76,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(null);
   };
 
-  const registerDocument = (id: string, title: string, type: DocumentType, patientName: string, patientDob: string) => {
+  const registerDocument = (id: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => {
     if (!currentUser) return;
 
-    let patient = patients.find(p => p.name.toLowerCase() === patientName.toLowerCase() && p.birthdate === patientDob);
+    let patient = patients.find(p => p.name.toLowerCase() === patientName.toLowerCase() && p.numeroAtendimento === numeroAtendimento);
     if (!patient) {
       patient = {
         id: `p${Date.now()}`,
         name: patientName,
-        birthdate: patientDob
+        numeroAtendimento: numeroAtendimento
       };
       setPatients(prev => [...prev, patient!]);
     }
@@ -97,6 +97,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentSectorId: currentUser.sectorId,
       status: 'registered',
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     const newEvent: DocumentEvent = {
@@ -130,6 +131,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...d, 
         currentSectorId: targetSectorId, 
         status: 'in-transit',
+        updatedAt: new Date().toISOString(),
         lastDispatchedBySectorId: currentUser.sectorId
       } : d
     ));
@@ -139,9 +141,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const cancelDispatch = (docId: string) => {
     if (!currentUser) return;
-    
-    // Cancel dispatch implies bringing it back to 'registered' (or whatever status it was) and ownership back to sender
-    // Assuming only the sender can cancel.
     
     const doc = documents.find(d => d.id === docId);
     if (!doc || doc.lastDispatchedBySectorId !== currentUser.sectorId) return;
@@ -161,6 +160,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...d, 
         currentSectorId: currentUser.sectorId, // Reclaim ownership
         status: 'registered',
+        updatedAt: new Date().toISOString(),
         lastDispatchedBySectorId: undefined
       } : d
     ));
@@ -172,7 +172,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!currentUser) return;
 
     setDocuments(prev => prev.map(d => 
-      d.id === docId ? { ...d, status: 'received' } : d
+      d.id === docId ? { ...d, status: 'received', updatedAt: new Date().toISOString() } : d
     ));
 
     const newEvent: DocumentEvent = {
@@ -212,7 +212,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (doc.status === 'in-transit') newStatus = 'registered';
 
     setDocuments(prev => prev.map(d => 
-      d.id === docId ? { ...d, status: newStatus } : d
+      d.id === docId ? { ...d, status: newStatus, updatedAt: new Date().toISOString() } : d
     ));
 
     const newEvent: DocumentEvent = {
@@ -243,8 +243,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return events.filter(e => e.documentId === docId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   };
 
-  const getPatientDocuments = (patientName: string, birthdate: string) => {
-    const patient = patients.find(p => p.name.toLowerCase().includes(patientName.toLowerCase()) && (birthdate ? p.birthdate === birthdate : true));
+  const getPatientDocuments = (patientName: string) => {
+    const patient = patients.find(p => p.name.toLowerCase().includes(patientName.toLowerCase()));
     if (!patient) return { patient: undefined, docs: [] };
     const docs = documents.filter(d => d.patientId === patient.id);
     return { patient, docs };

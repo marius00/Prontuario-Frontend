@@ -15,7 +15,7 @@ export type User = {
 export type Patient = {
   id: string;
   name: string;
-  birthdate: string; // ISO date string YYYY-MM-DD
+  numeroAtendimento: string; // Changed from birthdate
 };
 
 export type DocumentStatus = 'registered' | 'in-transit' | 'received' | 'archived';
@@ -38,11 +38,12 @@ export type DocumentEvent = {
 
 export type Document = {
   id: string;
-  title: string;
+  title?: string; // Optional
   type: DocumentType;
   patientId: string;
   currentSectorId: string; // Where it is now
   status: DocumentStatus;
   createdAt: string;
+  updatedAt: string; // Added
   lastDispatchedBySectorId?: string; // Track who sent it last
 };

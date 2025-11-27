@@ -9,18 +9,23 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function SearchPage() {
-  const { documents, patients, getDocumentHistory } = useApp();
+  const { documents, patients, getDocumentHistory, sectors } = useApp();
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState<'doc' | 'patient'>('doc');
 
   const filteredDocs = documents.filter(d => 
     d.id.toLowerCase().includes(query.toLowerCase()) || 
-    d.title.toLowerCase().includes(query.toLowerCase())
+    (d.title && d.title.toLowerCase().includes(query.toLowerCase()))
   );
 
   const filteredPatients = patients.filter(p => 
-    p.name.toLowerCase().includes(query.toLowerCase())
+    p.name.toLowerCase().includes(query.toLowerCase()) ||
+    p.numeroAtendimento.includes(query)
   );
+
+  const getSectorName = (sectorId: string) => {
+    return sectors.find(s => s.id === sectorId)?.name || sectorId;
+  };
 
   return (
     <div className="space-y-4">
@@ -35,7 +40,7 @@ export default function SearchPage() {
         <div className="relative flex-1">
           <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder={searchType === 'doc' ? "Buscar por ID ou Título..." : "Buscar por Nome do Paciente..."}
+            placeholder={searchType === 'doc' ? "Buscar por ID ou Título..." : "Buscar por Nome ou N° Atendimento..."}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9 h-12 text-lg"
@@ -63,7 +68,7 @@ export default function SearchPage() {
                 <div className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Histórico</div>
                 {getDocumentHistory(doc.id).slice(0, 3).map(event => (
                    <div key={event.id} className="text-xs text-muted-foreground mb-1">
-                     <span className="font-mono">{format(new Date(event.timestamp), 'dd/MM HH:mm')}</span> - {event.type} ({event.sectorId})
+                     <span className="font-mono">{format(new Date(event.timestamp), 'dd/MM HH:mm')}</span> - {event.type} ({getSectorName(event.sectorId)})
                    </div>
                 ))}
               </div>
@@ -82,7 +87,7 @@ export default function SearchPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold text-lg">{patient.name}</h3>
-                    <p className="text-sm text-muted-foreground">Nasc: {format(new Date(patient.birthdate), 'dd/MM/yyyy')}</p>
+                    <p className="text-sm text-muted-foreground font-mono">Atendimento: {patient.numeroAtendimento}</p>
                   </div>
                   <User className="h-8 w-8 text-muted-foreground/30" />
                 </div>
@@ -91,9 +96,17 @@ export default function SearchPage() {
                   <div className="space-y-2 pt-2 border-t">
                     <div className="text-xs font-medium text-muted-foreground">Documentos Associados:</div>
                     {patientDocs.map(doc => (
-                      <div key={doc.id} className="flex items-center justify-between text-sm p-2 bg-muted/50 rounded">
-                        <span>{doc.title}</span>
-                        <span className="text-xs font-mono bg-background px-1 rounded border">{doc.currentSectorId}</span>
+                      <div key={doc.id} className="flex flex-col p-3 bg-muted/50 rounded border gap-1">
+                        <div className="flex justify-between items-start">
+                          <span className="font-semibold text-sm">{doc.title || 'Sem título'}</span>
+                          <span className="text-xs font-mono bg-background px-1.5 py-0.5 rounded border text-primary font-bold">
+                            {getSectorName(doc.currentSectorId)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                          <span className="font-mono">{doc.id}</span>
+                          <span>Atualizado: {format(new Date(doc.updatedAt), 'dd/MM HH:mm')}</span>
+                        </div>
                       </div>
                     ))}
                   </div>

@@ -16,7 +16,7 @@ interface RegisterForm {
   title: string;
   type: DocumentType;
   patientName: string;
-  patientDob: string;
+  numeroAtendimento: string;
 }
 
 export default function RegisterPage() {
@@ -31,7 +31,7 @@ export default function RegisterPage() {
   const docType = watch('type');
 
   const onSubmit = (data: RegisterForm) => {
-    registerDocument(data.id, data.title, data.type, data.patientName, data.patientDob);
+    registerDocument(data.id, data.title, data.type, data.patientName, data.numeroAtendimento);
     toast({
       title: "Documento Registrado",
       description: `${data.type} ${data.id} para ${data.patientName} foi criado.`,
@@ -59,6 +59,18 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="numeroAtendimento">Número de Atendimento</Label>
+                <Input 
+                  id="numeroAtendimento" 
+                  type="number"
+                  placeholder="ex: 123456" 
+                  {...register('numeroAtendimento', { required: true })}
+                  className="h-12 text-lg font-mono"
+                />
+                {errors.numeroAtendimento && <span className="text-destructive text-xs">Obrigatório</span>}
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="patientName">Nome Completo</Label>
                 <Input 
                   id="patientName" 
@@ -67,17 +79,6 @@ export default function RegisterPage() {
                   className="h-12 text-lg"
                 />
                 {errors.patientName && <span className="text-destructive text-xs">Obrigatório</span>}
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="patientDob">Data de Nascimento</Label>
-                <Input 
-                  id="patientDob" 
-                  type="date" 
-                  {...register('patientDob', { required: true })}
-                  className="h-12 text-lg"
-                />
-                {errors.patientDob && <span className="text-destructive text-xs">Obrigatório</span>}
               </div>
             </div>
 
@@ -114,14 +115,13 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="title">Título / Descrição</Label>
+                <Label htmlFor="title">Título / Descrição (Opcional)</Label>
                 <Input 
                   id="title" 
-                  placeholder="ex: Raio-X Torax, Exames de Sangue" 
-                  {...register('title', { required: true })}
+                  placeholder="ex: Raio-X Torax" 
+                  {...register('title', { required: false })}
                   className="h-12 text-lg"
                 />
-                {errors.title && <span className="text-destructive text-xs">Obrigatório</span>}
               </div>
             </div>
 
