@@ -12,6 +12,8 @@ export default function LoginPage() {
   const { sectors, login } = useApp();
   const [, setLocation] = useLocation();
   const [selectedUser, setSelectedUser] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   
   // Simplified login mock - just picking a user ID
   // In real app, this would be auth flow.
@@ -26,6 +28,19 @@ export default function LoginPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    
+    if (!selectedUser || !password) {
+      setError('Please enter both user and password');
+      return;
+    }
+
+    // Mock password check
+    if (password !== 'password') {
+      setError('Invalid password (hint: use "password")');
+      return;
+    }
+
     if (selectedUser) {
       login(selectedUser);
       setLocation('/');
@@ -62,7 +77,26 @@ export default function LoginPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button type="submit" className="w-full h-12 text-lg" disabled={!selectedUser}>
+            
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input 
+                id="password" 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                className="h-12"
+              />
+            </div>
+
+            {error && (
+              <div className="text-sm text-destructive font-medium bg-destructive/10 p-2 rounded text-center">
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full h-12 text-lg">
               Login
             </Button>
             <div className="text-center text-xs text-muted-foreground mt-4">
