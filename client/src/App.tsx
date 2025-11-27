@@ -1,16 +1,48 @@
-import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import React, { useEffect } from "react";
+import { Switch, Route, useLocation } from "wouter";
+import { AppProvider, useApp } from "./lib/store";
+import { Layout } from "./components/Layout";
 import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+
+// Pages
+import LoginPage from "@/pages/LoginPage";
+import DashboardPage from "@/pages/DashboardPage";
+import RegisterPage from "@/pages/RegisterPage";
+import SearchPage from "@/pages/SearchPage";
+
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { currentUser } = useApp();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!currentUser) {
+      setLocation("/login");
+    }
+  }, [currentUser, setLocation]);
+
+  if (!currentUser) return null;
+
+  return (
+    <Layout>
+      <Component />
+    </Layout>
+  );
+}
 
 function Router() {
   return (
     <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
+      <Route path="/login" component={LoginPage} />
+      <Route path="/">
+        <ProtectedRoute component={DashboardPage} />
+      </Route>
+      <Route path="/register">
+        <ProtectedRoute component={RegisterPage} />
+      </Route>
+      <Route path="/search">
+        <ProtectedRoute component={SearchPage} />
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -18,12 +50,10 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AppProvider>
+      <Router />
+      <Toaster />
+    </AppProvider>
   );
 }
 
