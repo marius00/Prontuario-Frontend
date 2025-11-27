@@ -45,5 +45,6 @@ export type Document = {
   status: DocumentStatus;
   createdAt: string;
   updatedAt: string; // Added
+  createdByUserId: string; // Track who created it
   lastDispatchedBySectorId?: string; // Track who sent it last
 };

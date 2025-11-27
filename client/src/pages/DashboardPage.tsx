@@ -12,9 +12,16 @@ import { Search, Inbox, Send, Truck, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
-  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, undoLastAction, sectors } = useApp();
+  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
+  
+  // Edit Dialog State
+  const [editDocId, setEditDocId] = useState<string | null>(null);
+  const [editPatientName, setEditPatientName] = useState('');
+  const [editNumeroAtendimento, setEditNumeroAtendimento] = useState('');
+  const [editDocType, setEditDocType] = useState<'Ficha' | 'Prontuario'>('Ficha');
+  const [editTitle, setEditTitle] = useState('');
   
   // Dispatch Dialog State
   const [dispatchDocId, setDispatchDocId] = useState<string | null>(null);
@@ -91,6 +98,34 @@ export default function DashboardPage() {
     }
   };
 
+  const handleEdit = (id: string) => {
+    const doc = getDocumentsBySector(currentUser!.sectorId).find(d => d.id === id);
+    if (!doc) return;
+    const patient = patients.find(p => p.id === doc.patientId);
+    if (!patient) return;
+    
+    setEditDocId(id);
+    setEditPatientName(patient.name);
+    setEditNumeroAtendimento(patient.numeroAtendimento);
+    setEditDocType(doc.type);
+    setEditTitle(doc.title || '');
+  };
+
+  const handleSaveEdit = () => {
+    if (editDocId && editPatientName && editNumeroAtendimento) {
+      editDocument(editDocId, editTitle, editDocType, editPatientName, editNumeroAtendimento);
+      toast({
+        title: "Documento Atualizado",
+        description: "Alterações salvas com sucesso.",
+      });
+      setEditDocId(null);
+      setEditPatientName('');
+      setEditNumeroAtendimento('');
+      setEditDocType('Ficha');
+      setEditTitle('');
+    }
+  };
+
   const handleUndo = () => {
     if (undoDocId && undoReason) {
       undoLastAction(undoDocId, undoReason);
@@ -143,7 +178,9 @@ export default function DashboardPage() {
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
                 patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
                 showActions
+                isCreator={doc.createdByUserId === currentUser.id}
                 onDispatch={setDispatchDocId}
+                onEdit={handleEdit}
                 onUndo={setUndoDocId}
               />
             ))
@@ -196,6 +233,64 @@ export default function DashboardPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editDocId} onOpenChange={(open) => !open && setEditDocId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Documento</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do documento e do paciente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Número de Atendimento</Label>
+              <Input 
+                type="number"
+                value={editNumeroAtendimento}
+                onChange={(e) => setEditNumeroAtendimento(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome Completo</Label>
+              <Input 
+                value={editPatientName}
+                onChange={(e) => setEditPatientName(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Documento</Label>
+              <Select value={editDocType} onValueChange={(v: any) => setEditDocType(v)}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Ficha">Ficha</SelectItem>
+                  <SelectItem value="Prontuario">Prontuário</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Título / Descrição (Opcional)</Label>
+              <Input 
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="ex: Raio-X Torax"
+                className="h-10"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDocId(null)}>Cancelar</Button>
+            <Button onClick={handleSaveEdit} disabled={!editPatientName || !editNumeroAtendimento}>
+              Salvar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dispatch Dialog */}
       <Dialog open={!!dispatchDocId} onOpenChange={(open) => !open && setDispatchDocId(null)}>

@@ -23,7 +23,7 @@ const MOCK_PATIENTS: Patient[] = [
 ];
 
 const MOCK_DOCS: Document[] = [
-  { id: 'DOC-1001', title: 'Raio-X Torax', type: 'Ficha', patientId: 'p1', currentSectorId: 's1', status: 'registered', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'DOC-1001', title: 'Raio-X Torax', type: 'Ficha', patientId: 'p1', currentSectorId: 's1', status: 'registered', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdByUserId: 'u1' },
 ];
 
 const MOCK_EVENTS: DocumentEvent[] = [
@@ -39,6 +39,7 @@ interface AppState {
   login: (userId: string) => void;
   logout: () => void;
   registerDocument: (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
+  editDocument: (docId: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   dispatchDocument: (docId: string, targetSectorId: string) => void;
   cancelDispatch: (docId: string) => void;
   receiveDocument: (docId: string) => void;
@@ -97,7 +98,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentSectorId: currentUser.sectorId,
       status: 'registered',
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      createdByUserId: currentUser.id
     };
 
     const newEvent: DocumentEvent = {
@@ -111,6 +113,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setDocuments(prev => [...prev, newDoc]);
     setEvents(prev => [...prev, newEvent]);
+  };
+
+  const editDocument = (docId: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => {
+    if (!currentUser) return;
+
+    const doc = documents.find(d => d.id === docId);
+    if (!doc || doc.createdByUserId !== currentUser.id) return;
+
+    let patient = patients.find(p => p.id === doc.patientId);
+    if (patient) {
+      setPatients(prev => prev.map(p => 
+        p.id === patient!.id 
+          ? { ...p, name: patientName, numeroAtendimento }
+          : p
+      ));
+    }
+
+    setDocuments(prev => prev.map(d => 
+      d.id === docId 
+        ? { ...d, title, type, updatedAt: new Date().toISOString() }
+        : d
+    ));
   };
 
   const dispatchDocument = (docId: string, targetSectorId: string) => {
@@ -260,6 +284,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       registerDocument,
+      editDocument,
       dispatchDocument,
       cancelDispatch,
       receiveDocument,

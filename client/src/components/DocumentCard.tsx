@@ -3,7 +3,7 @@ import { Document, DocumentEvent, Sector } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MapPin, Clock, Truck, CheckCircle, AlertCircle, Undo2, FileText, XCircle } from 'lucide-react';
+import { MapPin, Clock, Truck, CheckCircle, AlertCircle, Undo2, FileText, XCircle, Edit } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -13,14 +13,16 @@ interface DocumentCardProps {
   patientName?: string;
   patientAtendimento?: string;
   showActions?: boolean;
+  isCreator?: boolean;
   onDispatch?: (id: string) => void;
   onReceive?: (id: string) => void;
   onReject?: (id: string) => void;
+  onEdit?: (id: string) => void;
   onUndo?: (id: string) => void;
   onCancelDispatch?: (id: string) => void;
 }
 
-export function DocumentCard({ doc, patientName, patientAtendimento, showActions, onDispatch, onReceive, onReject, onUndo, onCancelDispatch }: DocumentCardProps) {
+export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, onDispatch, onReceive, onReject, onEdit, onUndo, onCancelDispatch }: DocumentCardProps) {
   const statusColors = {
     'registered': 'border-l-primary',
     'in-transit': 'border-l-accent',
@@ -52,7 +54,14 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
           </div>
           <h3 className="font-semibold text-lg leading-tight">{doc.title || 'Sem Título'}</h3>
         </div>
-        {statusBadges[doc.status]}
+        <div className="flex items-center gap-2">
+          {isCreator && onEdit && (
+            <Button onClick={() => onEdit(doc.id)} variant="ghost" size="icon" className="shrink-0 h-7 w-7 text-muted-foreground hover:text-foreground">
+              <Edit className="h-4 w-4" />
+            </Button>
+          )}
+          {statusBadges[doc.status]}
+        </div>
       </CardHeader>
       <CardContent className="p-4 pt-2 space-y-3">
         <div className="space-y-1">
