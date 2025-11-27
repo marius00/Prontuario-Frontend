@@ -83,20 +83,15 @@ export default function SearchPage() {
                 doc={doc} 
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
                 patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
+                onRequest={setRequestDocId}
               />
-              <div className="mt-2 ml-4 pl-4 border-l-2 border-dashed border-muted-foreground/20 space-y-2">
+              <div className="mt-2 ml-4 pl-4 border-l-2 border-dashed border-muted-foreground/20 space-y-1">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Histórico</div>
                 {getDocumentHistory(doc.id).slice(0, 3).map(event => (
                    <div key={event.id} className="text-xs text-muted-foreground">
                      <span className="font-mono">{format(new Date(event.timestamp), 'dd/MM HH:mm')}</span> - {event.type} ({getSectorName(event.sectorId)})
                    </div>
                 ))}
-                <div className="flex justify-end pt-2">
-                  <Button onClick={() => setRequestDocId(doc.id)} variant="outline" size="sm" className="gap-2">
-                    <Send className="h-3.5 w-3.5" />
-                    Solicitar
-                  </Button>
-                </div>
               </div>
             </div>
           ))}

@@ -3,7 +3,7 @@ import { Document, DocumentEvent, Sector } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MapPin, Clock, Truck, CheckCircle, AlertCircle, Undo2, FileText, XCircle, Edit } from 'lucide-react';
+import { MapPin, Clock, Truck, CheckCircle, AlertCircle, Undo2, FileText, XCircle, Edit, Send } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -18,11 +18,12 @@ interface DocumentCardProps {
   onReceive?: (id: string) => void;
   onReject?: (id: string) => void;
   onEdit?: (id: string) => void;
+  onRequest?: (id: string) => void;
   onUndo?: (id: string) => void;
   onCancelDispatch?: (id: string) => void;
 }
 
-export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, onDispatch, onReceive, onReject, onEdit, onUndo, onCancelDispatch }: DocumentCardProps) {
+export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, onDispatch, onReceive, onReject, onEdit, onRequest, onUndo, onCancelDispatch }: DocumentCardProps) {
   const statusColors = {
     'registered': 'border-l-primary',
     'in-transit': 'border-l-accent',
@@ -45,7 +46,7 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
   return (
     <Card className={cn("overflow-hidden border-l-4 shadow-sm", statusColors[doc.status])}>
       <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0">
-        <div className="space-y-1">
+        <div className="space-y-1 flex-1">
           <div className="flex items-center gap-2">
             {typeBadges[doc.type]}
             <CardTitle className="text-sm font-medium text-muted-foreground font-mono tracking-tight">
@@ -54,13 +55,18 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
           </div>
           <h3 className="font-semibold text-lg leading-tight">{doc.title || 'Sem Título'}</h3>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-end gap-2 shrink-0">
           {isCreator && onEdit && (
             <Button onClick={() => onEdit(doc.id)} variant="ghost" size="icon" className="shrink-0 h-7 w-7 text-muted-foreground hover:text-foreground">
               <Edit className="h-4 w-4" />
             </Button>
           )}
           {statusBadges[doc.status]}
+          {onRequest && (
+            <Button onClick={() => onRequest(doc.id)} variant="ghost" size="icon" className="shrink-0 h-7 w-7 text-muted-foreground hover:text-foreground">
+              <Send className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-2 space-y-3">
