@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Layers, Plus, Trash2, RotateCcw } from 'lucide-react';
+import { Users, Layers, Plus, Trash2, RotateCcw, Menu, Copy, Check } from 'lucide-react';
 
 export default function AdminPage() {
   const { users, sectors, addUser, addSector, resetUserPassword, deactivateUser, disableSector } = useApp();
@@ -23,6 +24,12 @@ export default function AdminPage() {
   const [showAddSectorDialog, setShowAddSectorDialog] = useState(false);
   const [newSectorName, setNewSectorName] = useState('');
   const [newSectorCode, setNewSectorCode] = useState('');
+
+  // Password reset state
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState<{ id: string; name: string } | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const handleAddUser = () => {
     if (!newUserName || !newUserSector) {
@@ -46,12 +53,27 @@ export default function AdminPage() {
     setShowAddUserDialog(false);
   };
 
+  const generatePassword = (): string => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let password = '';
+    for (let i = 0; i < 10; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
   const handleResetPassword = (userId: string, userName: string) => {
+    const tempPassword = generatePassword();
+    setNewPassword(tempPassword);
+    setResetPasswordUser({ id: userId, name: userName });
+    setShowResetPasswordDialog(true);
     resetUserPassword(userId);
-    toast({
-      title: "Sucesso",
-      description: `Senha de ${userName} foi resetada.`,
-    });
+  };
+
+  const handleCopyPassword = () => {
+    navigator.clipboard.writeText(newPassword);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
   };
 
   const handleDeactivateUser = (userId: string, userName: string) => {
@@ -127,28 +149,24 @@ export default function AdminPage() {
                     {user.role === 'admin' ? 'ADMIN' : 'STAFF'}
                   </span>
                 </div>
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={() => handleResetPassword(user.id, user.name)}
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    data-testid={`button-reset-password-${user.id}`}
-                  >
-                    <RotateCcw className="mr-2 h-3 w-3" />
-                    Resetar Senha
-                  </Button>
-                  <Button 
-                    onClick={() => handleDeactivateUser(user.id, user.name)}
-                    variant="destructive" 
-                    size="sm" 
-                    className="flex-1"
-                    data-testid={`button-deactivate-user-${user.id}`}
-                  >
-                    <Trash2 className="mr-2 h-3 w-3" />
-                    Desativar
-                  </Button>
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full" data-testid={`button-user-menu-${user.id}`}>
+                      <Menu className="mr-2 h-4 w-4" />
+                      Ações
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.name)} data-testid={`menu-reset-password-${user.id}`}>
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Resetar Senha
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDeactivateUser(user.id, user.name)} className="text-destructive focus:text-destructive" data-testid={`menu-deactivate-${user.id}`}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Desativar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             ))}
           </div>
@@ -242,6 +260,48 @@ export default function AdminPage() {
             </Button>
             <Button onClick={handleAddUser} data-testid="button-save-user">
               Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={showResetPasswordDialog} onOpenChange={setShowResetPasswordDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Senha Resetada</DialogTitle>
+            <DialogDescription>
+              Nova senha de {resetPasswordUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nova Senha</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={newPassword}
+                  readOnly
+                  className="font-mono text-sm"
+                  data-testid="input-new-password-display"
+                />
+                <Button
+                  onClick={handleCopyPassword}
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-copy-password"
+                >
+                  {copySuccess ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Clique no ícone para copiar a senha.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowResetPasswordDialog(false)} data-testid="button-close-password-dialog">
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
