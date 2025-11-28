@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { MapPin, Clock, Truck, CheckCircle, AlertCircle, Undo2, FileText, XCircle, Edit, Menu } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -63,12 +63,27 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
     return getUserName(doc.createdByUserId);
   };
 
-  const getSenderSector = () => {
-    const receivedEvent = getDocumentEvents().find(e => e.type === 'received');
-    const dispatchedEvent = getDocumentEvents().find(e => e.type === 'dispatched');
-    
-    if (receivedEvent && dispatchedEvent) {
-      return getSectorName(dispatchedEvent.sectorId);
+  const getReceivedInfo = () => {
+    const receivedEvent = getReceivedEvent();
+    if (receivedEvent) {
+      return {
+        user: getUserName(receivedEvent.userId),
+        timestamp: receivedEvent.timestamp,
+        sector: getSectorName(receivedEvent.sectorId)
+      };
+    }
+    return null;
+  };
+
+  const getSentInfo = () => {
+    const dispatchedEvent = getMostRecentDispatchedEvent();
+    if (dispatchedEvent) {
+      return {
+        user: getUserName(dispatchedEvent.userId),
+        timestamp: dispatchedEvent.timestamp,
+        fromSector: getSectorName(dispatchedEvent.sectorId),
+        toSector: getSectorName(dispatchedEvent.metadata?.toSectorId || '')
+      };
     }
     return null;
   };
@@ -150,22 +165,18 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
             <MapPin className="h-3 w-3" />
             <span>
               {getSectorName(doc.currentSectorId)}
-              {getSenderSector() && ` (Received by ${getSenderSector()})`}
+              {getReceivedInfo() && ` (${getReceivedInfo()!.user}, ${format(new Date(getReceivedInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })})`}
             </span>
           </div>
-          <div className="text-xs text-muted-foreground pl-5">
-            {getReceivedByUser()}
-          </div>
+          {getSentInfo() && (
+            <div className="text-xs text-muted-foreground pl-5">
+              Sent by {getSentInfo()!.fromSector} by {getSentInfo()!.user} {format(new Date(getSentInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
+            </div>
+          )}
           {doc.status === 'in-transit' && getMostRecentDispatchedEvent() && (
             <div className="flex items-center text-xs text-muted-foreground gap-2">
               <Truck className="h-3 w-3" />
               <span>Enviado para {getSectorName(getMostRecentDispatchedEvent()!.metadata?.toSectorId || '')} {formatDistanceToNow(new Date(getMostRecentDispatchedEvent()!.timestamp), { locale: ptBR })} atrás</span>
-            </div>
-          )}
-          {(doc.status === 'received' || doc.status === 'in-transit') && getReceivedEvent() && (
-            <div className="flex items-center text-xs text-muted-foreground gap-2">
-              <CheckCircle className="h-3 w-3" />
-              <span>Recebido {formatDistanceToNow(new Date(getReceivedEvent()!.timestamp), { locale: ptBR })} atrás</span>
             </div>
           )}
         </div>
