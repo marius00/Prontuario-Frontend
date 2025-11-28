@@ -12,7 +12,7 @@ import { Search, Inbox, Send, Truck, Upload, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
-  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments } = useApp();
+  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
   const [selectMode, setSelectMode] = useState(false);
@@ -237,6 +237,7 @@ export default function DashboardPage() {
                 isCreator={doc.createdByUserId === currentUser.id}
                 sectors={sectors}
                 events={events}
+                users={users}
                 selectMode={selectMode}
                 isSelected={selectedDocs.has(doc.id)}
                 onSelect={handleSelectDocument}
@@ -266,6 +267,7 @@ export default function DashboardPage() {
                 showActions
                 sectors={sectors}
                 events={events}
+                users={users}
                 onReceive={handleReceive}
                 onReject={setRejectDocId}
                 onUndo={setUndoDocId}
@@ -292,6 +294,7 @@ export default function DashboardPage() {
                 showActions
                 sectors={sectors}
                 events={events}
+                users={users}
                 onCancelDispatch={handleCancelDispatch}
               />
             ))

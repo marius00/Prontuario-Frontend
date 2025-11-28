@@ -62,6 +62,16 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
     // If no received event, show who created it
     return getUserName(doc.createdByUserId);
   };
+
+  const getSenderSector = () => {
+    const receivedEvent = getDocumentEvents().find(e => e.type === 'received');
+    const dispatchedEvent = getDocumentEvents().find(e => e.type === 'dispatched');
+    
+    if (receivedEvent && dispatchedEvent) {
+      return getSectorName(dispatchedEvent.sectorId);
+    }
+    return null;
+  };
   const statusColors = {
     'registered': 'border-l-primary',
     'in-transit': 'border-l-accent',
@@ -138,7 +148,10 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
           <p className="text-sm font-medium text-foreground">{patientName}</p>
           <div className="flex items-center text-xs text-muted-foreground gap-2">
             <MapPin className="h-3 w-3" />
-            <span>{getSectorName(doc.currentSectorId)}</span>
+            <span>
+              {getSectorName(doc.currentSectorId)}
+              {getSenderSector() && ` (Received by ${getSenderSector()})`}
+            </span>
           </div>
           <div className="text-xs text-muted-foreground pl-5">
             {getReceivedByUser()}
