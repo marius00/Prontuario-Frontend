@@ -161,16 +161,14 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
       <CardContent className="p-4 pt-2 space-y-3">
         <div className="space-y-2">
           <p className="text-sm font-medium text-foreground">{patientName}</p>
-          <div className="flex items-center text-xs text-muted-foreground gap-2">
-            <MapPin className="h-3 w-3" />
-            <span>
-              {getSectorName(doc.currentSectorId)}
-              {getReceivedInfo() && ` (${getReceivedInfo()!.user}, ${format(new Date(getReceivedInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })})`}
-            </span>
-          </div>
+          {getReceivedInfo() && (
+            <div className="text-xs text-muted-foreground">
+              Received by {getReceivedInfo()!.sector}, {getReceivedInfo()!.user}, {format(new Date(getReceivedInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
+            </div>
+          )}
           {getSentInfo() && (
-            <div className="text-xs text-muted-foreground pl-5">
-              Sent by {getSentInfo()!.fromSector} by {getSentInfo()!.user} {format(new Date(getSentInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
+            <div className="text-xs text-muted-foreground">
+              Sent by {getSentInfo()!.fromSector}, {getSentInfo()!.user}, {format(new Date(getSentInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
             </div>
           )}
           {doc.status === 'in-transit' && getMostRecentDispatchedEvent() && (
