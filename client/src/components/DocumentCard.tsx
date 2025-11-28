@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MapPin, Clock, Truck, CheckCircle, AlertCircle, Undo2, FileText, XCircle, Edit, Menu } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,9 @@ interface DocumentCardProps {
   showMenu?: boolean;
   sectors?: Sector[];
   events?: DocumentEvent[];
+  selectMode?: boolean;
+  isSelected?: boolean;
+  onSelect?: (id: string, checked: boolean) => void;
   onDispatch?: (id: string) => void;
   onReceive?: (id: string) => void;
   onReject?: (id: string) => void;
@@ -28,7 +32,7 @@ interface DocumentCardProps {
   onCancelDispatch?: (id: string) => void;
 }
 
-export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch }: DocumentCardProps) {
+export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], selectMode, isSelected, onSelect, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch }: DocumentCardProps) {
   const getSectorName = (sectorId: string) => {
     return sectors.find(s => s.id === sectorId)?.name || sectorId;
   };
@@ -64,16 +68,26 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
   };
 
   return (
-    <Card className={cn("overflow-hidden border-l-4 shadow-sm", statusColors[doc.status])}>
+    <Card className={cn("overflow-hidden border-l-4 shadow-sm", statusColors[doc.status], selectMode && isSelected && "bg-primary/5 border-l-primary")}>
       <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0">
-        <div className="space-y-1 flex-1">
-          <div className="flex items-center gap-2">
-            {typeBadges[doc.type]}
-            <CardTitle className="text-sm font-medium text-muted-foreground font-mono tracking-tight">
-              Atend: {patientAtendimento || 'N/A'}
-            </CardTitle>
+        <div className="space-y-1 flex-1 flex items-start gap-3">
+          {selectMode && onSelect && (
+            <Checkbox 
+              checked={isSelected || false}
+              onCheckedChange={(checked) => onSelect(doc.id, checked as boolean)}
+              className="mt-1"
+              data-testid={`checkbox-select-${doc.id}`}
+            />
+          )}
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              {typeBadges[doc.type]}
+              <CardTitle className="text-sm font-medium text-muted-foreground font-mono tracking-tight">
+                Atend: {patientAtendimento || 'N/A'}
+              </CardTitle>
+            </div>
+            <h3 className="font-semibold text-lg leading-tight">{doc.title || 'Sem Título'}</h3>
           </div>
-          <h3 className="font-semibold text-lg leading-tight">{doc.title || 'Sem Título'}</h3>
         </div>
         <div className="flex flex-col items-end gap-2 shrink-0">
           {isCreator && onEdit && (

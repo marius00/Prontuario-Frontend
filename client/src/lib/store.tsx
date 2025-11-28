@@ -57,6 +57,7 @@ interface AppState {
   deactivateUser: (userId: string) => void;
   addSector: (name: string, code: string) => void;
   disableSector: (sectorId: string) => void;
+  bulkDispatchDocuments: (docIds: string[], targetSectorId: string) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -332,6 +333,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSectors(prev => prev.map(s => s.id === sectorId ? { ...s, active: false } : s));
   };
 
+  const bulkDispatchDocuments = (docIds: string[], targetSectorId: string) => {
+    if (!currentUser) return;
+    
+    docIds.forEach(docId => {
+      dispatchDocument(docId, targetSectorId);
+    });
+  };
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -359,7 +368,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       resetUserPassword,
       deactivateUser,
       addSector,
-      disableSector
+      disableSector,
+      bulkDispatchDocuments
     }}>
       {children}
     </AppContext.Provider>

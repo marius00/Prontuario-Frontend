@@ -8,13 +8,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Inbox, Send, Truck, Upload } from 'lucide-react';
+import { Search, Inbox, Send, Truck, Upload, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
-  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events } = useApp();
+  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
+  const [showBulkSendDialog, setShowBulkSendDialog] = useState(false);
+  const [bulkTargetSectorId, setBulkTargetSectorId] = useState<string>('');
   
   // Edit Dialog State
   const [editDocId, setEditDocId] = useState<string | null>(null);
@@ -138,6 +142,30 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSelectDocument = (docId: string, checked: boolean) => {
+    const newSelected = new Set(selectedDocs);
+    if (checked) {
+      newSelected.add(docId);
+    } else {
+      newSelected.delete(docId);
+    }
+    setSelectedDocs(newSelected);
+  };
+
+  const handleBulkSend = () => {
+    if (selectedDocs.size > 0 && bulkTargetSectorId) {
+      bulkDispatchDocuments(Array.from(selectedDocs), bulkTargetSectorId);
+      toast({
+        title: "Sucesso",
+        description: `${selectedDocs.size} documento(s) enviado(s) para o setor.`,
+      });
+      setSelectedDocs(new Set());
+      setSelectMode(false);
+      setShowBulkSendDialog(false);
+      setBulkTargetSectorId('');
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -165,6 +193,32 @@ export default function DashboardPage() {
         </TabsList>
         
         <TabsContent value="inventory" className="space-y-3">
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => {
+                setSelectMode(!selectMode);
+                setSelectedDocs(new Set());
+              }}
+              variant={selectMode ? "default" : "outline"}
+              size="sm"
+              className="flex-1"
+              data-testid="button-toggle-select-mode"
+            >
+              {selectMode ? 'Cancelar Seleção' : 'Selecionar Múltiplos'}
+            </Button>
+            {selectMode && selectedDocs.size > 0 && (
+              <Button 
+                onClick={() => setShowBulkSendDialog(true)}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                size="sm"
+                data-testid="button-bulk-send"
+              >
+                <Send className="mr-2 h-4 w-4" />
+                Enviar ({selectedDocs.size})
+              </Button>
+            )}
+          </div>
+
           {filteredMyDocs.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
               <Inbox className="h-10 w-10 mx-auto mb-2 opacity-20" />
@@ -177,10 +231,13 @@ export default function DashboardPage() {
                 doc={doc} 
                 patientName={patients.find(p => p.id === doc.patientId)?.name}
                 patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
-                showActions
+                showActions={!selectMode}
                 isCreator={doc.createdByUserId === currentUser.id}
                 sectors={sectors}
                 events={events}
+                selectMode={selectMode}
+                isSelected={selectedDocs.has(doc.id)}
+                onSelect={handleSelectDocument}
                 onDispatch={setDispatchDocId}
                 onEdit={handleEdit}
                 onUndo={setUndoDocId}
@@ -239,6 +296,43 @@ export default function DashboardPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Bulk Send Dialog */}
+      <Dialog open={showBulkSendDialog} onOpenChange={setShowBulkSendDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enviar {selectedDocs.size} Documento(s)</DialogTitle>
+            <DialogDescription>
+              Selecione o setor de destino para enviar todos os documentos selecionados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="bulk-target-sector">Setor de Destino</Label>
+              <Select value={bulkTargetSectorId} onValueChange={setBulkTargetSectorId}>
+                <SelectTrigger id="bulk-target-sector" data-testid="select-bulk-target-sector">
+                  <SelectValue placeholder="Selecione um setor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sectors.filter(s => s.id !== currentUser?.sectorId && s.active !== false).map(sector => (
+                    <SelectItem key={sector.id} value={sector.id}>
+                      {sector.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkSendDialog(false)} data-testid="button-cancel-bulk-send">
+              Cancelar
+            </Button>
+            <Button onClick={handleBulkSend} disabled={!bulkTargetSectorId} data-testid="button-confirm-bulk-send">
+              Enviar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={!!editDocId} onOpenChange={(open) => !open && setEditDocId(null)}>
