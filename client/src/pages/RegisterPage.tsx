@@ -103,7 +103,7 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="title">Título / Descrição (Opcional)</Label>
+                <Label htmlFor="title">Observação</Label>
                 <Input 
                   id="title" 
                   placeholder="ex: Raio-X Torax" 
