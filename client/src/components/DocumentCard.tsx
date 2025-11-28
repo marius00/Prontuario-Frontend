@@ -1,5 +1,5 @@
 import React from 'react';
-import { Document, DocumentEvent, Sector } from '@/lib/types';
+import { Document, DocumentEvent, Sector, User } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ interface DocumentCardProps {
   showMenu?: boolean;
   sectors?: Sector[];
   events?: DocumentEvent[];
+  users?: User[];
   selectMode?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string, checked: boolean) => void;
@@ -32,9 +33,13 @@ interface DocumentCardProps {
   onCancelDispatch?: (id: string) => void;
 }
 
-export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], selectMode, isSelected, onSelect, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch }: DocumentCardProps) {
+export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], users = [], selectMode, isSelected, onSelect, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch }: DocumentCardProps) {
   const getSectorName = (sectorId: string) => {
     return sectors.find(s => s.id === sectorId)?.name || sectorId;
+  };
+
+  const getUserName = (userId: string) => {
+    return users.find(u => u.id === userId)?.name || userId;
   };
 
   const getDocumentEvents = () => {
@@ -47,6 +52,15 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
 
   const getMostRecentDispatchedEvent = () => {
     return getDocumentEvents().find(e => e.type === 'dispatched');
+  };
+
+  const getReceivedByUser = () => {
+    const receivedEvent = getDocumentEvents().find(e => e.type === 'received');
+    if (receivedEvent) {
+      return getUserName(receivedEvent.userId);
+    }
+    // If no received event, show who created it
+    return getUserName(doc.createdByUserId);
   };
   const statusColors = {
     'registered': 'border-l-primary',
@@ -125,6 +139,9 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
           <div className="flex items-center text-xs text-muted-foreground gap-2">
             <MapPin className="h-3 w-3" />
             <span>{getSectorName(doc.currentSectorId)}</span>
+          </div>
+          <div className="text-xs text-muted-foreground pl-5">
+            {getReceivedByUser()}
           </div>
           {doc.status === 'in-transit' && getMostRecentDispatchedEvent() && (
             <div className="flex items-center text-xs text-muted-foreground gap-2">
