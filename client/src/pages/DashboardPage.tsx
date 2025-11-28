@@ -193,31 +193,33 @@ export default function DashboardPage() {
         </TabsList>
         
         <TabsContent value="inventory" className="space-y-3">
-          <div className="flex gap-2">
-            <Button 
-              onClick={() => {
-                setSelectMode(!selectMode);
-                setSelectedDocs(new Set());
-              }}
-              variant={selectMode ? "default" : "outline"}
-              size="sm"
-              className="flex-1"
-              data-testid="button-toggle-select-mode"
-            >
-              {selectMode ? 'Cancelar Seleção' : 'Selecionar Múltiplos'}
-            </Button>
-            {selectMode && selectedDocs.size > 0 && (
+          {filteredMyDocs.length > 1 && (
+            <div className="flex gap-2">
               <Button 
-                onClick={() => setShowBulkSendDialog(true)}
-                className="flex-1 bg-green-600 hover:bg-green-700"
+                onClick={() => {
+                  setSelectMode(!selectMode);
+                  setSelectedDocs(new Set());
+                }}
+                variant={selectMode ? "default" : "outline"}
                 size="sm"
-                data-testid="button-bulk-send"
+                className="flex-1"
+                data-testid="button-toggle-select-mode"
               >
-                <Send className="mr-2 h-4 w-4" />
-                Enviar ({selectedDocs.size})
+                {selectMode ? 'Cancelar Seleção' : 'Selecionar Múltiplos'}
               </Button>
-            )}
-          </div>
+              {selectMode && selectedDocs.size > 0 && (
+                <Button 
+                  onClick={() => setShowBulkSendDialog(true)}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  size="sm"
+                  data-testid="button-bulk-send"
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  Enviar ({selectedDocs.size})
+                </Button>
+              )}
+            </div>
+          )}
 
           {filteredMyDocs.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
