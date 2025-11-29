@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '@/lib/store';
 import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,22 +14,56 @@ export default function LoginPage() {
   const [selectedUser, setSelectedUser] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  
-  // Simplified login mock - just picking a user ID
-  // In real app, this would be auth flow.
-  // We'll hardcode "mock users" associated with sectors for the demo dropdown
-  
-  const mockUsers = [
-    { id: 'u1', name: 'Alice (Admissão)', sectorId: 's1' },
-    { id: 'u2', name: 'Bob (Radiologia)', sectorId: 's2' },
-    { id: 'u3', name: 'Carlos (Cardiologia)', sectorId: 's3' },
-    { id: 'u4', name: 'Daniela (Arquivo)', sectorId: 's4' },
-  ];
+  const [users, setUsers] = useState<{ name: string; sectorId: string }[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoadingUsers(true);
+        setError('');
+
+        const response = await fetch('http://localhost:8080/graphql', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: `query {\n  listUsers {\n    username\n    sector\n  }\n}`,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erro ao carregar usuários: ${response.status}`);
+        }
+
+        const json = await response.json();
+
+        if (json.errors) {
+          throw new Error(json.errors[0]?.message || 'Erro desconhecido ao carregar usuários');
+        }
+
+        const apiUsers = (json.data?.listUsers ?? []).map((u: { username: string; sector: string }) => ({
+          name: u.username,
+          sectorId: u.sector,
+        }));
+
+        setUsers(apiUsers);
+      } catch (err: any) {
+        console.error('Erro ao buscar usuários', err);
+        setError(err.message || 'Não foi possível carregar a lista de usuários');
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!selectedUser || !password) {
       setError('Por favor, insira usuário e senha');
       return;
@@ -42,6 +76,7 @@ export default function LoginPage() {
     }
 
     if (selectedUser) {
+      // selectedUser now contains the username from the API
       login(selectedUser);
       setLocation('/');
     }
@@ -61,16 +96,17 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="user">Selecionar Usuário</Label>
-              <Select onValueChange={setSelectedUser}>
+              <Select onValueChange={setSelectedUser} disabled={loadingUsers || users.length === 0}>
                 <SelectTrigger id="user" className="h-12">
-                  <SelectValue placeholder="Selecione um usuário..." />
+                  <SelectValue placeholder={loadingUsers ? 'Carregando usuários...' : 'Selecione um usuário...'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockUsers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
+                  {users.map(user => (
+                    <SelectItem key={user.name} value={user.name}>
                       <div className="flex items-center gap-2">
                         <UserCircle className="h-4 w-4 text-muted-foreground" />
                         <span>{user.name}</span>
+                        <span className="text-xs text-muted-foreground">({user.sectorId})</span>
                       </div>
                     </SelectItem>
                   ))}
