@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Sector, Document, Patient, DocumentEvent, DocumentType } from './types';
-import { getUserProfile, clearUserProfile, StoredUserProfile } from '@/lib/indexedDb';
+ import { getUserProfile, clearUserProfile, clearAuthToken, clearAllViewData } from '@/lib/indexedDb';
 
 // Mock Data
 const MOCK_SECTORS: Sector[] = [
@@ -99,7 +99,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setCurrentUser(null);
     setUsers([]);
-    clearUserProfile().catch((err) => console.error('Erro ao limpar perfil do usuário', err));
+
+    // Clear all persisted auth-related and cached view data
+    Promise.all([
+      clearUserProfile(),
+      clearAuthToken(),
+      clearAllViewData(),
+    ]).catch((err) => console.error('Erro ao limpar dados do usuário no IndexedDB', err));
   };
 
   const registerDocument = (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => {
