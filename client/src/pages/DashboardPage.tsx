@@ -41,9 +41,9 @@ export default function DashboardPage() {
 
   if (!currentUser) return null;
 
-  const myDocs = getDocumentsBySector(currentUser.sectorId);
-  const incomingDocs = getIncomingDocuments(currentUser.sectorId);
-  const outgoingDocs = getOutgoingPendingDocuments(currentUser.sectorId);
+  const myDocs = getDocumentsBySector(currentUser.sector);
+  const incomingDocs = getIncomingDocuments(currentUser.sector);
+  const outgoingDocs = getOutgoingPendingDocuments(currentUser.sector);
 
   const filterDocs = (docs: any[]) => docs.filter(d => {
     const patient = patients.find(p => p.id === d.patientId);
@@ -103,7 +103,7 @@ export default function DashboardPage() {
   };
 
   const handleEdit = (id: string) => {
-    const doc = getDocumentsBySector(currentUser!.sectorId).find(d => d.id === id);
+    const doc = getDocumentsBySector(currentUser!.sector).find(d => d.id === id);
     if (!doc) return;
     const patient = patients.find(p => p.id === doc.patientId);
     if (!patient) return;
@@ -319,7 +319,7 @@ export default function DashboardPage() {
                   <SelectValue placeholder="Selecione um setor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sectors.filter(s => s.id !== currentUser?.sectorId && s.active !== false).map(sector => (
+                  {sectors.filter(s => s.id !== currentUser?.sector && s.active !== false).map(sector => (
                     <SelectItem key={sector.id} value={sector.id}>
                       {sector.name}
                     </SelectItem>
@@ -414,7 +414,7 @@ export default function DashboardPage() {
                   <SelectValue placeholder="Selecione o setor..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {sectors.filter(s => s.id !== currentUser.sectorId).map(s => (
+                  {sectors.filter(s => s.id !== currentUser.sector).map(s => (
                     <SelectItem key={s.id} value={s.id}>{s.name} ({s.code})</SelectItem>
                   ))}
                 </SelectContent>

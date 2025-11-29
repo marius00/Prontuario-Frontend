@@ -23,7 +23,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     return <div className="min-h-screen bg-background">{children}</div>;
   }
 
-  const currentSector = sectors.find(s => s.id === currentUser.sectorId);
+  const currentSector = sectors.find(s => s.id === currentUser.sector);
 
   const handleChangePassword = () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -75,7 +75,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-semibold leading-none">{currentSector?.name}</span>
-              <span className="text-xs text-muted-foreground font-mono">{currentUser.name}</span>
+              <span className="text-xs text-muted-foreground font-mono">{currentUser.username}</span>
             </div>
           </div>
           <DropdownMenu>
@@ -162,30 +162,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 border-t bg-card z-50 pb-safe">
         <div className="flex items-center justify-around h-16 max-w-md mx-auto">
-          <Link href="/">
-            <a className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
-              <LayoutDashboard className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Painel</span>
-            </a>
+          <Link href="/"  className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+            <LayoutDashboard className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Painel</span>
           </Link>
-          <Link href="/register">
-            <a className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/register' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
-              <PlusCircle className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Registrar</span>
-            </a>
+          <Link href="/register" className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/register' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+            <PlusCircle className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Registrar</span>
           </Link>
-          <Link href="/search">
-            <a className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/search' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
-              <Search className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Buscar</span>
-            </a>
+          <Link href="/search"  className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/search' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+            <Search className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Buscar</span>
           </Link>
           {currentUser?.role === 'admin' && (
-            <Link href="/admin">
-              <a className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/admin' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
-                <Settings className="h-6 w-6" />
-                <span className="text-[10px] font-medium">Administrar</span>
-              </a>
+            <Link href="/admin"  className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/admin' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+              <Settings className="h-6 w-6" />
+              <span className="text-[10px] font-medium">Administrar</span>
             </Link>
           )}
         </div>

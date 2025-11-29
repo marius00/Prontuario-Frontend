@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2, UserCircle } from 'lucide-react';
-import { saveAuthToken } from '@/lib/indexedDb';
+import { saveAuthToken, saveUserProfile, StoredUserProfile } from '@/lib/indexedDb';
 import { graphqlFetch } from '@/lib/graphqlClient';
 
 export default function LoginPage() {
@@ -91,8 +91,26 @@ export default function LoginPage() {
 
       await saveAuthToken(result.token);
 
-      // keep existing app-level login behavior (can be adapted later to include token if needed)
-      login(selectedUsername);
+      // Fetch user details via whoAmI using the newly stored token
+      const whoAmIQuery = `query {\n  whoAmI {\n    id\n    isAuthenticated\n    roles {\n      role\n      level\n    }\n    sector\n    username\n  }\n}`;
+
+      const whoAmIResponse = await graphqlFetch<{ whoAmI: StoredUserProfile }>({
+        query: whoAmIQuery,
+      });
+
+      if (whoAmIResponse.errors) {
+        throw new Error(whoAmIResponse.errors[0]?.message || 'Erro ao obter dados do usuário');
+      }
+
+      const whoAmI = whoAmIResponse.data?.whoAmI;
+      if (!whoAmI || !whoAmI.isAuthenticated) {
+        throw new Error('Não foi possível autenticar o usuário');
+      }
+
+      await saveUserProfile(whoAmI);
+
+      // Log in the app store using the backend user id
+      login(whoAmI.id);
       setLocation('/');
     } catch (err: any) {
       console.error('Erro no login', err);

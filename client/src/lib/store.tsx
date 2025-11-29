@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Sector, Document, Patient, DocumentEvent, DocumentType } from './types';
-import { format } from 'date-fns';
+import { getUserProfile, clearUserProfile, StoredUserProfile } from '@/lib/indexedDb';
 
 // Mock Data
 const MOCK_SECTORS: Sector[] = [
@@ -8,13 +8,6 @@ const MOCK_SECTORS: Sector[] = [
   { id: 's2', name: 'Radiologia', code: 'RAD' },
   { id: 's3', name: 'Cardiologia', code: 'CAR' },
   { id: 's4', name: 'Arquivo', code: 'ARC' },
-];
-
-const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'Alice (Admissão)', sectorId: 's1', role: 'admin' },
-  { id: 'u2', name: 'Bob (Radiologia)', sectorId: 's2', role: 'staff' },
-  { id: 'u3', name: 'Carlos (Cardiologia)', sectorId: 's3', role: 'staff' },
-  { id: 'u4', name: 'Daniela (Arquivo)', sectorId: 's4', role: 'staff' },
 ];
 
 const MOCK_PATIENTS: Patient[] = [
@@ -36,7 +29,7 @@ interface AppState {
   documents: Document[];
   patients: Patient[];
   events: DocumentEvent[];
-  users: User[];
+  users: User[]; // For now this can represent only the currently logged in user in an array
   login: (userId: string) => void;
   logout: () => void;
   registerDocument: (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
@@ -64,26 +57,49 @@ const AppContext = createContext<AppState | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [users, setUsers] = useState<User[]>([]);
   const [sectors, setSectors] = useState<Sector[]>(MOCK_SECTORS);
   const [documents, setDocuments] = useState<Document[]>(MOCK_DOCS);
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [events, setEvents] = useState<DocumentEvent[]>(MOCK_EVENTS);
 
   useEffect(() => {
-    // const storedUser = localStorage.getItem('doc_user');
-    // if (storedUser) setCurrentUser(JSON.parse(storedUser));
+    // Hydrate from IndexedDB user profile on app start
+    const loadUserFromDb = async () => {
+      try {
+        const profile = await getUserProfile();
+        if (profile && profile.isAuthenticated) {
+          const mappedUser: User = {
+            id: profile.id,
+            username: profile.username,
+            sector: profile.sector,
+            role: profile.roles?.some((r) => r.role === 'admin') ? 'admin' : 'staff',
+            active: true,
+          };
+          setCurrentUser(mappedUser);
+          setUsers([mappedUser]);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar usuário do IndexedDB', err);
+      }
+    };
+
+    loadUserFromDb();
   }, []);
 
   const login = (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    if (user) {
-      setCurrentUser(user);
-    }
+    // In the new model, users list is hydrated from whoAmI; simply ensure currentUser is consistent
+    setCurrentUser((prev) => {
+      if (prev && prev.id === userId) return prev;
+      const existing = users.find((u) => u.id === userId);
+      return existing || prev;
+    });
   };
 
   const logout = () => {
     setCurrentUser(null);
+    setUsers([]);
+    clearUserProfile().catch((err) => console.error('Erro ao limpar perfil do usuário', err));
   };
 
   const registerDocument = (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => {
@@ -104,7 +120,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       title,
       type,
       patientId: patient.id,
-      currentSectorId: currentUser.sectorId,
+      currentSectorId: currentUser.sector,
       status: 'registered',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -117,7 +133,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'created',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sectorId
+      sectorId: currentUser.sector
     };
 
     setDocuments(prev => [...prev, newDoc]);
@@ -155,7 +171,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'dispatched',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sectorId,
+      sectorId: currentUser.sector,
       metadata: { toSectorId: targetSectorId }
     };
 
@@ -165,7 +181,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentSectorId: targetSectorId, 
         status: 'in-transit',
         updatedAt: new Date().toISOString(),
-        lastDispatchedBySectorId: currentUser.sectorId
+        lastDispatchedBySectorId: currentUser.sector
       } : d
     ));
 
@@ -176,7 +192,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!currentUser) return;
     
     const doc = documents.find(d => d.id === docId);
-    if (!doc || doc.lastDispatchedBySectorId !== currentUser.sectorId) return;
+    if (!doc || doc.lastDispatchedBySectorId !== currentUser.sector) return;
 
     const newEvent: DocumentEvent = {
       id: `e${Date.now()}`,
@@ -184,14 +200,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'cancelled',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sectorId,
+      sectorId: currentUser.sector,
       metadata: { reason: 'Dispatch cancelled by sender' }
     };
 
     setDocuments(prev => prev.map(d => 
       d.id === docId ? { 
         ...d, 
-        currentSectorId: currentUser.sectorId, // Reclaim ownership
+        currentSectorId: currentUser.sector, // Reclaim ownership
         status: 'registered',
         updatedAt: new Date().toISOString(),
         lastDispatchedBySectorId: undefined
@@ -214,7 +230,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'received',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sectorId
+      sectorId: currentUser.sector
     };
     setEvents(prev => [...prev, newEvent]);
   };
@@ -228,7 +244,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'rejected',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sectorId,
+      sectorId: currentUser.sector,
       metadata: { reason }
     };
     setEvents(prev => [...prev, newEvent]);
@@ -254,7 +270,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'undo',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sectorId,
+      sectorId: currentUser.sector,
       metadata: { reason }
     };
     setEvents(prev => [...prev, newEvent]);
@@ -292,7 +308,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'created',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sectorId,
+      sectorId: currentUser.sector,
       metadata: { reason }
     };
 
@@ -302,8 +318,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addUser = (name: string, sectorId: string, role: 'admin' | 'staff') => {
     const newUser: User = {
       id: `u${Date.now()}`,
-      name,
-      sectorId,
+      username: name,
+      sector: sectorId,
       role,
       active: true
     };

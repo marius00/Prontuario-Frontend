@@ -140,9 +140,9 @@ export default function AdminPage() {
               <div key={user.id} className="border rounded-lg p-4 bg-card" data-testid={`card-user-${user.id}`}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="font-semibold text-lg">{user.name}</h3>
+                    <h3 className="font-semibold text-lg">{user.username}</h3>
                     <p className="text-xs text-muted-foreground">
-                      {user.role === 'admin' ? 'Administrador' : 'Equipe'} • Setor: {sectors.find(s => s.id === user.sectorId)?.name}
+                      {user.role === 'admin' ? 'Administrador' : 'Equipe'} • Setor: {sectors.find(s => s.id === user.sector)?.name}
                     </p>
                   </div>
                   <span className="text-xs font-mono bg-primary/10 px-2 py-1 rounded text-primary">
@@ -157,11 +157,11 @@ export default function AdminPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.name)} data-testid={`menu-reset-password-${user.id}`}>
+                    <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.username)} data-testid={`menu-reset-password-${user.id}`}>
                       <RotateCcw className="mr-2 h-4 w-4" />
                       Resetar Senha
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDeactivateUser(user.id, user.name)} className="text-destructive focus:text-destructive" data-testid={`menu-deactivate-${user.id}`}>
+                    <DropdownMenuItem onClick={() => handleDeactivateUser(user.id, user.username)} className="text-destructive focus:text-destructive" data-testid={`menu-deactivate-${user.id}`}>
                       <Trash2 className="mr-2 h-4 w-4" />
                       Desativar
                     </DropdownMenuItem>

@@ -8,11 +8,23 @@ export type Sector = {
 
 export type User = {
   id: string;
-  name: string;
-  sectorId: string;
+  username: string;
+  sector: string;
   role: 'admin' | 'staff';
+
   active?: boolean;
+  // roles: { role: string; level: number }[];
+  isAuthenticated?: boolean;
 };
+
+
+export interface StoredUserProfile {
+  id: string;
+  username: string;
+  sector: string;
+  roles: { role: string; level: number }[];
+  isAuthenticated: boolean;
+}
 
 export type Patient = {
   id: string;

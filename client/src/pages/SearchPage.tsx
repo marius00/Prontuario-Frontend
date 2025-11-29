@@ -180,7 +180,7 @@ export default function SearchPage() {
             <div className="space-y-2">
               <Label>Seu Setor</Label>
               <div className="h-10 px-3 py-2 border rounded-md bg-muted flex items-center text-sm font-medium">
-                {currentUser ? getSectorName(currentUser.sectorId) : 'N/A'}
+                {currentUser ? getSectorName(currentUser.sector) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
