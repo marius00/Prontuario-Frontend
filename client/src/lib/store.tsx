@@ -72,7 +72,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const mappedUser: User = {
             id: profile.id,
             username: profile.username,
-            sector: profile.sector,
+            sector: { name: profile.sector.name, code: profile.sector.code },
             role: profile.roles?.some((r) => r.role === 'admin') ? 'admin' : 'staff',
             active: true,
           };
@@ -120,7 +120,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       title,
       type,
       patientId: patient.id,
-      currentSectorId: currentUser.sector,
+      currentSectorId: currentUser.sector.name,
       status: 'registered',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -133,7 +133,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'created',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sector
+      sectorId: currentUser.sector.name
     };
 
     setDocuments(prev => [...prev, newDoc]);
@@ -171,7 +171,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'dispatched',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sector,
+      sectorId: currentUser.sector.name,
       metadata: { toSectorId: targetSectorId }
     };
 
@@ -181,7 +181,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentSectorId: targetSectorId, 
         status: 'in-transit',
         updatedAt: new Date().toISOString(),
-        lastDispatchedBySectorId: currentUser.sector
+        lastDispatchedBySectorId: currentUser.sector.name
       } : d
     ));
 
@@ -192,7 +192,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!currentUser) return;
     
     const doc = documents.find(d => d.id === docId);
-    if (!doc || doc.lastDispatchedBySectorId !== currentUser.sector) return;
+    if (!doc || doc.lastDispatchedBySectorId !== currentUser.sector.name) return;
 
     const newEvent: DocumentEvent = {
       id: `e${Date.now()}`,
@@ -200,14 +200,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'cancelled',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sector,
+      sectorId: currentUser.sector.name,
       metadata: { reason: 'Dispatch cancelled by sender' }
     };
 
     setDocuments(prev => prev.map(d => 
       d.id === docId ? { 
         ...d, 
-        currentSectorId: currentUser.sector, // Reclaim ownership
+        currentSectorId: currentUser.sector.name, // Reclaim ownership
         status: 'registered',
         updatedAt: new Date().toISOString(),
         lastDispatchedBySectorId: undefined
@@ -230,7 +230,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'received',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sector
+      sectorId: currentUser.sector.name
     };
     setEvents(prev => [...prev, newEvent]);
   };
@@ -244,7 +244,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'rejected',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sector,
+      sectorId: currentUser.sector.name,
       metadata: { reason }
     };
     setEvents(prev => [...prev, newEvent]);
@@ -270,7 +270,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'undo',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sector,
+      sectorId: currentUser.sector.name,
       metadata: { reason }
     };
     setEvents(prev => [...prev, newEvent]);
@@ -308,7 +308,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'created',
       timestamp: new Date().toISOString(),
       userId: currentUser.id,
-      sectorId: currentUser.sector,
+      sectorId: currentUser.sector.name,
       metadata: { reason }
     };
 
@@ -319,7 +319,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const newUser: User = {
       id: `u${Date.now()}`,
       username: name,
-      sector: sectorId,
+      sector: { name: sectorId, code: "?" },
       role,
       active: true
     };

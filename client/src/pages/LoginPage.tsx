@@ -101,7 +101,21 @@ export default function LoginPage() {
       await saveAuthToken(result.token);
 
       // Fetch user details via whoAmI using the newly stored token
-      const whoAmIQuery = `query {\n  whoAmI {\n    id\n    isAuthenticated\n    roles {\n      role\n      level\n    }\n    sector\n    username\n  }\n}`;
+      const whoAmIQuery = `query {
+        whoAmI {
+            id
+            isAuthenticated
+                roles {
+              role
+              level
+            }
+            sector {
+              code
+              name
+            }
+            username
+          }
+        }`;
 
       const whoAmIResponse = await graphqlFetch<{ whoAmI: StoredUserProfile }>({
         query: whoAmIQuery,

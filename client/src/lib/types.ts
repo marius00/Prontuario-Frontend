@@ -1,15 +1,15 @@
 
 export type Sector = {
-  id: string;
+  id?: string;
   name: string;
-  code: string;
+  code?: string;
   active?: boolean;
 };
 
 export type User = {
   id: string;
   username: string;
-  sector: string;
+  sector: Sector;
   role: 'admin' | 'staff';
 
   active?: boolean;

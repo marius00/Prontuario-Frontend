@@ -23,7 +23,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     return <div className="min-h-screen bg-background">{children}</div>;
   }
 
-  const currentSector = sectors.find(s => s.id === currentUser.sector);
+  const currentSector = sectors.find(s => s.id === currentUser.sector.name);
 
   const handleChangePassword = () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -71,10 +71,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex h-14 items-center px-4 justify-between">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground font-bold font-mono">
-              {currentSector?.code.substring(0, 1)}
+              {(currentUser.sector.code ?? currentUser.sector.name.toUpperCase()).substring(0, 3)}
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-semibold leading-none">{currentSector?.name}</span>
+              <span className="text-sm font-semibold leading-none">{currentUser.sector.name}</span>
               <span className="text-xs text-muted-foreground font-mono">{currentUser.username}</span>
             </div>
           </div>

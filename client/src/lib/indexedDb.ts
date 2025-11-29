@@ -148,10 +148,15 @@ async function openUserDb(): Promise<IDBDatabase> {
   });
 }
 
+
+export interface ISector {
+  name: string;
+  code?: string;
+}
 export interface StoredUserProfile {
   id: string;
   username: string;
-  sector: string;
+  sector: ISector;
   roles: { role: string; level: number }[];
   isAuthenticated: boolean;
 }
