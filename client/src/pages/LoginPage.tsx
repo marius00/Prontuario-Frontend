@@ -7,15 +7,19 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2, UserCircle } from 'lucide-react';
+import { saveAuthToken } from '@/lib/indexedDb';
+import { graphqlFetch } from '@/lib/graphqlClient';
 
 export default function LoginPage() {
   const { sectors, login } = useApp();
   const [, setLocation] = useLocation();
-  const [selectedUser, setSelectedUser] = useState('');
+  const [selectedUsername, setSelectedUsername] = useState('');
+  const [selectedSector, setSelectedSector] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [users, setUsers] = useState<{ name: string; sectorId: string }[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -23,27 +27,14 @@ export default function LoginPage() {
         setLoadingUsers(true);
         setError('');
 
-        const response = await fetch('http://localhost:8080/graphql', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query: `query {\n  listUsers {\n    username\n    sector\n  }\n}`,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Erro ao carregar usuários: ${response.status}`);
-        }
-
-        const json = await response.json();
+        const query = `query {\n  listUsers {\n    username\n    sector\n  }\n}`;
+        const json = await graphqlFetch<{ listUsers: { username: string; sector: string }[] }>({ query });
 
         if (json.errors) {
           throw new Error(json.errors[0]?.message || 'Erro desconhecido ao carregar usuários');
         }
 
-        const apiUsers = (json.data?.listUsers ?? []).map((u: { username: string; sector: string }) => ({
+        const apiUsers = (json.data?.listUsers ?? []).map((u) => ({
           name: u.username,
           sectorId: u.sector,
         }));
@@ -60,26 +51,63 @@ export default function LoginPage() {
     fetchUsers();
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!selectedUser || !password) {
-      setError('Por favor, insira usuário e senha');
+    if (!selectedUsername || !selectedSector || !password) {
+      setError('Por favor, selecione um usuário e insira a senha');
       return;
     }
 
-    // Mock password check
-    if (password !== 'password') {
-      setError('Senha inválida (dica: use "password")');
-      return;
-    }
+    try {
+      setSubmitting(true);
 
-    if (selectedUser) {
-      // selectedUser now contains the username from the API
-      login(selectedUser);
+      const mutation = `mutation Login($username: String!, $sector: String!, $password: String!) {\n  login(username: $username, sector: $sector, password: $password) {\n    success\n    token\n  }\n}`;
+
+      const json = await graphqlFetch<{ login: { success: boolean; token?: string } }>({
+        query: mutation,
+        variables: {
+          username: selectedUsername,
+          sector: selectedSector,
+          password,
+        },
+      });
+
+      if (json.errors) {
+        throw new Error(json.errors[0]?.message || 'Erro desconhecido ao fazer login');
+      }
+
+      const result = json.data?.login;
+
+      if (!result?.success) {
+        setError('Senha invalida');
+        return;
+      }
+
+      if (!result.token) {
+        throw new Error('Resposta inesperada da API: token ausente');
+      }
+
+      await saveAuthToken(result.token);
+
+      // keep existing app-level login behavior (can be adapted later to include token if needed)
+      login(selectedUsername);
       setLocation('/');
+    } catch (err: any) {
+      console.error('Erro no login', err);
+      if (!error) {
+        setError(err.message || 'Não foi possível realizar o login');
+      }
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const handleUserChange = (value: string) => {
+    setSelectedUsername(value);
+    const found = users.find((u) => u.name === value);
+    setSelectedSector(found?.sectorId ?? '');
   };
 
   return (
@@ -96,12 +124,12 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="user">Selecionar Usuário</Label>
-              <Select onValueChange={setSelectedUser} disabled={loadingUsers || users.length === 0}>
+              <Select onValueChange={handleUserChange} disabled={loadingUsers || users.length === 0}>
                 <SelectTrigger id="user" className="h-12">
                   <SelectValue placeholder={loadingUsers ? 'Carregando usuários...' : 'Selecione um usuário...'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map(user => (
+                  {users.map((user) => (
                     <SelectItem key={user.name} value={user.name}>
                       <div className="flex items-center gap-2">
                         <UserCircle className="h-4 w-4 text-muted-foreground" />
@@ -113,12 +141,12 @@ export default function LoginPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
-              <Input 
-                id="password" 
-                type="password" 
+              <Input
+                id="password"
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Digite sua senha"
@@ -132,8 +160,8 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button type="submit" className="w-full h-12 text-lg">
-              Entrar
+            <Button type="submit" className="w-full h-12 text-lg" disabled={submitting}>
+              {submitting ? 'Entrando...' : 'Entrar'}
             </Button>
             <div className="text-center text-xs text-muted-foreground mt-4">
               Pronto para uso Offline (PWA)

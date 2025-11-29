@@ -1,0 +1,48 @@
+import { getAuthToken } from '@/lib/indexedDb';
+
+interface GraphQLRequestOptions {
+  query: string;
+  variables?: Record<string, any>;
+}
+
+export interface GraphQLError {
+  message: string;
+}
+
+export interface GraphQLResponse<T> {
+  data?: T;
+  errors?: GraphQLError[];
+}
+
+const GRAPHQL_ENDPOINT = 'http://localhost:8080/graphql';
+
+export async function graphqlFetch<T = any>({
+  query,
+  variables,
+}: GraphQLRequestOptions): Promise<GraphQLResponse<T>> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  try {
+    const token = await getAuthToken();
+    if (token) {
+      (headers as any).Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // If IndexedDB is unavailable, continue without auth header
+  }
+
+  const response = await fetch(GRAPHQL_ENDPOINT, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ query, variables }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`GraphQL request failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
