@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, UserCircle } from 'lucide-react';
+import { Building2, UserCircle, HeartPulse } from 'lucide-react';
 import { saveAuthToken, saveUserProfile, StoredUserProfile } from '@/lib/indexedDb';
 import { graphqlFetch } from '@/lib/graphqlClient';
 import {User} from "@/lib/types.ts";
@@ -156,9 +156,9 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-lg border-t-4 border-t-primary">
         <CardHeader className="space-y-1 text-center">
           <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
-            <Building2 className="h-6 w-6 text-primary" />
+            <HeartPulse className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold">DocLocate</CardTitle>
+          <CardTitle className="text-2xl font-bold">Protocolo Digital</CardTitle>
           <CardDescription>Sistema de Rastreamento de Documentos</CardDescription>
         </CardHeader>
         <CardContent>

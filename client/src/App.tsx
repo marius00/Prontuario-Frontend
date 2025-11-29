@@ -11,6 +11,7 @@ import DashboardPage from "@/pages/DashboardPage";
 import RegisterPage from "@/pages/RegisterPage";
 import SearchPage from "@/pages/SearchPage";
 import AdminPage from "@/pages/AdminPage";
+import {Spinner} from "@/components/ui/spinner.tsx";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { currentUser, isInitialized } = useApp();
@@ -43,7 +44,11 @@ function LoginRouteWrapper() {
     }
   }, [currentUser, isInitialized, setLocation]);
 
-  if (!isInitialized) return null;
+    const dynamicStyle = {
+        scale: 3,
+    };
+
+  if (!isInitialized) return <Spinner style={dynamicStyle} />;
   if (currentUser) return null;
   return <LoginPage />;
 }
