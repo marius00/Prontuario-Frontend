@@ -11,7 +11,7 @@ import { saveAuthToken, saveUserProfile, StoredUserProfile } from '@/lib/indexed
 import { graphqlFetch } from '@/lib/graphqlClient';
 
 export default function LoginPage() {
-  const { sectors, login } = useApp();
+  const { currentUser, sectors, login } = useApp();
   const [, setLocation] = useLocation();
   const [selectedUsername, setSelectedUsername] = useState('');
   const [selectedSector, setSelectedSector] = useState('');
@@ -20,6 +20,15 @@ export default function LoginPage() {
   const [users, setUsers] = useState<{ name: string; sectorId: string }[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // If we already have an authenticated user hydrated from IndexedDB, skip login screen
+  useEffect(() => {
+    if (currentUser?.id) {
+      // ensure store login consistency and redirect
+      login(currentUser.id);
+      setLocation('/');
+    }
+  }, [currentUser, login, setLocation]);
 
   useEffect(() => {
     const fetchUsers = async () => {
