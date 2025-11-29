@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Building2, UserCircle } from 'lucide-react';
 import { saveAuthToken, saveUserProfile, StoredUserProfile } from '@/lib/indexedDb';
 import { graphqlFetch } from '@/lib/graphqlClient';
+import {User} from "@/lib/types.ts";
 
 export default function LoginPage() {
   const { currentUser, sectors, login } = useApp();
@@ -20,15 +21,6 @@ export default function LoginPage() {
   const [users, setUsers] = useState<{ name: string; sectorId: string }[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  // If we already have an authenticated user hydrated from IndexedDB, skip login screen
-  useEffect(() => {
-    if (currentUser?.id) {
-      // ensure store login consistency and redirect
-      login(currentUser.id);
-      setLocation('/');
-    }
-  }, [currentUser, login, setLocation]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -133,7 +125,15 @@ export default function LoginPage() {
       await saveUserProfile(whoAmI);
 
       // Log in the app store using the backend user id
-      login(whoAmI.id);
+      const mappedUser: User = {
+        id: whoAmI.id,
+        username: whoAmI.username,
+        sector: { name: whoAmI.sector.name, code: whoAmI.sector.code },
+        role: whoAmI.roles?.some((r) => r.role === 'admin') ? 'admin' : 'staff',
+        active: true,
+      };
+
+      login(mappedUser);
       setLocation('/');
     } catch (err: any) {
       console.error('Erro no login', err);

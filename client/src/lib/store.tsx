@@ -25,12 +25,13 @@ const MOCK_EVENTS: DocumentEvent[] = [
 
 interface AppState {
   currentUser: User | null;
+  isInitialized: boolean;
   sectors: Sector[];
   documents: Document[];
   patients: Patient[];
   events: DocumentEvent[];
   users: User[]; // For now this can represent only the currently logged in user in an array
-  login: (userId: string) => void;
+  login: (user: User) => void;
   logout: () => void;
   registerDocument: (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   editDocument: (docId: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
@@ -57,6 +58,7 @@ const AppContext = createContext<AppState | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [sectors, setSectors] = useState<Sector[]>(MOCK_SECTORS);
   const [documents, setDocuments] = useState<Document[]>(MOCK_DOCS);
@@ -81,18 +83,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.error('Erro ao carregar usuário do IndexedDB', err);
+      } finally {
+        setIsInitialized(true);
       }
     };
 
     loadUserFromDb();
   }, []);
 
-  const login = (userId: string) => {
+  const login = (user: User) => {
     // In the new model, users list is hydrated from whoAmI; simply ensure currentUser is consistent
     setCurrentUser((prev) => {
-      if (prev && prev.id === userId) return prev;
-      const existing = users.find((u) => u.id === userId);
-      return existing || prev;
+      if (prev && prev.id === user.id) return prev;
+      return user;
     });
   };
 
@@ -366,6 +369,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       currentUser,
+      isInitialized,
       sectors,
       documents,
       patients,

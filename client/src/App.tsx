@@ -13,15 +13,16 @@ import SearchPage from "@/pages/SearchPage";
 import AdminPage from "@/pages/AdminPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
-  const { currentUser } = useApp();
+  const { currentUser, isInitialized } = useApp();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!currentUser) {
+    if (isInitialized && !currentUser) {
       setLocation("/login");
     }
-  }, [currentUser, setLocation]);
+  }, [currentUser, isInitialized, setLocation]);
 
+  if (!isInitialized) return null;
   if (!currentUser) return null;
 
   return (
@@ -31,10 +32,26 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   );
 }
 
+function LoginRouteWrapper() {
+  const { currentUser, isInitialized } = useApp();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (isInitialized && currentUser) {
+      // Already logged in: skip rendering LoginPage and go to dashboard
+      setLocation("/");
+    }
+  }, [currentUser, isInitialized, setLocation]);
+
+  if (!isInitialized) return null;
+  if (currentUser) return null;
+  return <LoginPage />;
+}
+
 function Router() {
   return (
     <Switch>
-      <Route path="/login" component={LoginPage} />
+      <Route path="/login" component={LoginRouteWrapper} />
       <Route path="/">
         <ProtectedRoute component={DashboardPage} />
       </Route>
