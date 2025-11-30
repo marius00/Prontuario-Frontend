@@ -12,6 +12,7 @@ const USER_STORE_NAME = 'user';
 const USER_KEY = 'currentUser';
 const SECTORS_KEY = 'sectors';
 const USERS_KEY = 'users';
+const DASHBOARD_DOCS_KEY = 'dashboardDocs';
 
 interface StoredSectorsPayload {
   sectors: { name: string; code: string; active?: boolean }[];
@@ -20,6 +21,13 @@ interface StoredSectorsPayload {
 
 interface StoredUsersPayload {
   users: { id: string; username: string; sector: { name: string; code: string }; role: 'admin' | 'staff'; active?: boolean }[];
+  updatedAt: number; // epoch ms
+}
+
+interface StoredDashboardDocsPayload {
+  inventory: any[];
+  inbox: any[];
+  outbox: any[];
   updatedAt: number; // epoch ms
 }
 
@@ -321,6 +329,52 @@ export async function clearUsersCache(): Promise<void> {
     const tx = db.transaction(USER_STORE_NAME, 'readwrite');
     const store = tx.objectStore(USER_STORE_NAME);
     store.delete(USERS_KEY);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ---- Dashboard documents cache helpers ----
+
+async function openDashboardDocsDb(): Promise<IDBDatabase> {
+  return openDb(DB_NAME, DB_VERSION, (db) => {
+    if (!db.objectStoreNames.contains(USER_STORE_NAME)) {
+      db.createObjectStore(USER_STORE_NAME);
+    }
+  });
+}
+
+export async function saveDashboardDocsToCache(payload: StoredDashboardDocsPayload): Promise<void> {
+  const db = await openDashboardDocsDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(USER_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(USER_STORE_NAME);
+    store.put(payload, DASHBOARD_DOCS_KEY);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function loadDashboardDocsFromCache(): Promise<StoredDashboardDocsPayload | undefined> {
+  const db = await openDashboardDocsDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(USER_STORE_NAME, 'readonly');
+    const store = tx.objectStore(USER_STORE_NAME);
+    const req = store.get(DASHBOARD_DOCS_KEY);
+
+    req.onsuccess = () => resolve(req.result as StoredDashboardDocsPayload | undefined);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function clearDashboardDocsCache(): Promise<void> {
+  const db = await openDashboardDocsDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(USER_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(USER_STORE_NAME);
+    store.delete(DASHBOARD_DOCS_KEY);
 
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);

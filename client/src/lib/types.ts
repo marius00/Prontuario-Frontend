@@ -1,4 +1,3 @@
-
 export type Sector = {
   name: string;
   code?: string;
@@ -60,4 +59,33 @@ export type Document = {
   updatedAt: string; // Added
   createdByUserId: string; // Track who created it
   lastDispatchedBySectorId?: string; // Track who sent it last
+};
+
+// New types for dashboard documents from GraphQL
+export type DashboardDocumentType = 'Ficha' | 'Prontuario' | 'Exame' | 'Laudo';
+
+export type DocumentActionEnum = 'CREATED' | 'SENT' | 'RECEIVED' | 'REJECTED' | 'REQUESTED';
+
+export type DashboardDocumentHistory = {
+  action: DocumentActionEnum;
+  user: string;
+  sector: Sector;
+  dateTime: string;
+  description: string;
+};
+
+export type DashboardDocument = {
+  id: number;
+  number: number;
+  name: string;
+  type: DashboardDocumentType;
+  observations?: string;
+  sector?: Sector;
+  history: DashboardDocumentHistory[];
+};
+
+export type DashboardDocuments = {
+  inventory: DashboardDocument[];
+  inbox: DashboardDocument[];
+  outbox: DashboardDocument[];
 };

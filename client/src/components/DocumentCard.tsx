@@ -35,11 +35,11 @@ interface DocumentCardProps {
 
 export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], users = [], selectMode, isSelected, onSelect, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch }: DocumentCardProps) {
   const getSectorName = (sectorId: string) => {
-    return sectors.find(s => s.id === sectorId)?.name || sectorId;
+    return sectors.find(s => s.name === sectorId)?.name || sectorId;
   };
 
   const getUserName = (userId: string) => {
-    return users.find(u => u.id === userId)?.name || userId;
+    return users.find(u => u.id === userId)?.username || userId;
   };
 
   const getDocumentEvents = () => {

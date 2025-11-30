@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/lib/store';
 import { DocumentCard } from '@/components/DocumentCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,11 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Inbox, Send, Truck, Upload, X } from 'lucide-react';
+import { Search, Inbox, Send, Truck, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
-  const { currentUser, getDocumentsBySector, getIncomingDocuments, getOutgoingPendingDocuments, patients, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users } = useApp();
+  const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
   const [selectMode, setSelectMode] = useState(false);
@@ -39,19 +39,42 @@ export default function DashboardPage() {
   const [undoDocId, setUndoDocId] = useState<string | null>(null);
   const [undoReason, setUndoReason] = useState('');
 
+  useEffect(() => {
+    loadDashboardDocuments();
+  }, [loadDashboardDocuments]);
+
+  // Adapter function to convert DashboardDocument to Document format for DocumentCard
+  const adaptDashboardDocToDocument = (dashDoc: any) => ({
+    id: dashDoc.id.toString(),
+    title: dashDoc.name,
+    type: dashDoc.type,
+    patientId: `patient-${dashDoc.id}`, // We'll use a synthetic ID
+    currentSectorId: dashDoc.sector?.name || (currentUser?.sector.name || 'Unknown'),
+    status: 'registered' as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdByUserId: currentUser?.id || 'unknown',
+    // Add DashboardDocument specific properties for easy access
+    number: dashDoc.number,
+    observations: dashDoc.observations,
+    history: dashDoc.history
+  });
+
   if (!currentUser) return null;
 
-  const myDocs = getDocumentsBySector(currentUser.sector);
-  const incomingDocs = getIncomingDocuments(currentUser.sector);
-  const outgoingDocs = getOutgoingPendingDocuments(currentUser.sector);
+  // Use GraphQL dashboard documents instead of mock data
+  const myDocs = dashboardDocuments?.inventory || [];
+  const incomingDocs = dashboardDocuments?.inbox || [];
+  const outgoingDocs = dashboardDocuments?.outbox || [];
 
-  const filterDocs = (docs: any[]) => docs.filter(d => {
-    const patient = patients.find(p => p.id === d.patientId);
+  const filterDocs = (docs: any[]) => docs.filter((d: any) => {
+    // DashboardDocument has 'name' instead of 'title' and 'number' instead of 'id'
+    const searchText = filter.toLowerCase();
     return (
-      d.title.toLowerCase().includes(filter.toLowerCase()) || 
-      d.id.toLowerCase().includes(filter.toLowerCase()) ||
-      (patient && patient.name.toLowerCase().includes(filter.toLowerCase())) ||
-      (patient && patient.numeroAtendimento.includes(filter))
+      (d.name && d.name.toLowerCase().includes(searchText)) ||
+      (d.number && d.number.toString().includes(searchText)) ||
+      (d.observations && d.observations.toLowerCase().includes(searchText)) ||
+      (d.type && d.type.toLowerCase().includes(searchText))
     );
   });
 
@@ -103,16 +126,15 @@ export default function DashboardPage() {
   };
 
   const handleEdit = (id: string) => {
-    const doc = getDocumentsBySector(currentUser!.sector).find(d => d.id === id);
-    if (!doc) return;
-    const patient = patients.find(p => p.id === doc.patientId);
-    if (!patient) return;
-    
+    // Find the document in dashboard data
+    const dashDoc = myDocs.find(d => d.id.toString() === id);
+    if (!dashDoc) return;
+
     setEditDocId(id);
-    setEditPatientName(patient.name);
-    setEditNumeroAtendimento(patient.numeroAtendimento);
-    setEditDocType(doc.type);
-    setEditTitle(doc.title || '');
+    setEditPatientName(`Doc #${dashDoc.number}`);
+    setEditNumeroAtendimento(dashDoc.observations || '');
+    setEditDocType(dashDoc.type as 'Ficha' | 'Prontuario');
+    setEditTitle(dashDoc.name || '');
   };
 
   const handleSaveEdit = () => {
@@ -227,25 +249,28 @@ export default function DashboardPage() {
               <p>Nenhum documento no inventário.</p>
             </div>
           ) : (
-            filteredMyDocs.map(doc => (
-              <DocumentCard 
-                key={doc.id} 
-                doc={doc} 
-                patientName={patients.find(p => p.id === doc.patientId)?.name}
-                patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
-                showActions={!selectMode}
-                isCreator={doc.createdByUserId === currentUser.id}
-                sectors={sectors}
-                events={events}
-                users={users}
-                selectMode={selectMode}
-                isSelected={selectedDocs.has(doc.id)}
-                onSelect={handleSelectDocument}
-                onDispatch={setDispatchDocId}
-                onEdit={handleEdit}
-                onUndo={setUndoDocId}
-              />
-            ))
+            filteredMyDocs.map(dashDoc => {
+              const adaptedDoc = adaptDashboardDocToDocument(dashDoc);
+              return (
+                <DocumentCard
+                  key={adaptedDoc.id}
+                  doc={adaptedDoc}
+                  patientName={`Doc #${dashDoc.number}`} // Use document number as "patient"
+                  patientAtendimento={dashDoc.observations || 'Sem observações'}
+                  showActions={!selectMode}
+                  isCreator={adaptedDoc.createdByUserId === currentUser.id}
+                  sectors={sectors}
+                  events={events}
+                  users={users}
+                  selectMode={selectMode}
+                  isSelected={selectedDocs.has(adaptedDoc.id)}
+                  onSelect={handleSelectDocument}
+                  onDispatch={setDispatchDocId}
+                  onEdit={handleEdit}
+                  onUndo={setUndoDocId}
+                />
+              );
+            })
           )}
         </TabsContent>
         
@@ -258,21 +283,24 @@ export default function DashboardPage() {
               <p>Nenhum documento chegando.</p>
             </div>
           ) : (
-            filteredIncoming.map(doc => (
-              <DocumentCard 
-                key={doc.id} 
-                doc={doc} 
-                patientName={patients.find(p => p.id === doc.patientId)?.name}
-                patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
-                showActions
-                sectors={sectors}
-                events={events}
-                users={users}
-                onReceive={handleReceive}
-                onReject={setRejectDocId}
-                onUndo={setUndoDocId}
-              />
-            ))
+            filteredIncoming.map(dashDoc => {
+              const adaptedDoc = adaptDashboardDocToDocument(dashDoc);
+              return (
+                <DocumentCard
+                  key={adaptedDoc.id}
+                  doc={adaptedDoc}
+                  patientName={`Doc #${dashDoc.number}`}
+                  patientAtendimento={dashDoc.observations || 'Sem observações'}
+                  showActions
+                  sectors={sectors}
+                  events={events}
+                  users={users}
+                  onReceive={handleReceive}
+                  onReject={setRejectDocId}
+                  onUndo={setUndoDocId}
+                />
+              );
+            })
           )}
         </TabsContent>
 
@@ -285,19 +313,22 @@ export default function DashboardPage() {
               <p>Nenhum envio pendente.</p>
             </div>
           ) : (
-            filteredOutgoing.map(doc => (
-              <DocumentCard 
-                key={doc.id} 
-                doc={doc} 
-                patientName={patients.find(p => p.id === doc.patientId)?.name}
-                patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
-                showActions
-                sectors={sectors}
-                events={events}
-                users={users}
-                onCancelDispatch={handleCancelDispatch}
-              />
-            ))
+            filteredOutgoing.map(dashDoc => {
+              const adaptedDoc = adaptDashboardDocToDocument(dashDoc);
+              return (
+                <DocumentCard
+                  key={adaptedDoc.id}
+                  doc={adaptedDoc}
+                  patientName={`Doc #${dashDoc.number}`}
+                  patientAtendimento={dashDoc.observations || 'Sem observações'}
+                  showActions
+                  sectors={sectors}
+                  events={events}
+                  users={users}
+                  onCancelDispatch={handleCancelDispatch}
+                />
+              );
+            })
           )}
         </TabsContent>
       </Tabs>
@@ -319,8 +350,8 @@ export default function DashboardPage() {
                   <SelectValue placeholder="Selecione um setor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sectors.filter(s => s.id !== currentUser?.sector && s.active !== false).map(sector => (
-                    <SelectItem key={sector.id} value={sector.id}>
+                  {sectors.filter(s => s.name !== currentUser?.sector.name && s.active !== false).map(sector => (
+                    <SelectItem key={sector.name} value={sector.name}>
                       {sector.name}
                     </SelectItem>
                   ))}
@@ -414,8 +445,8 @@ export default function DashboardPage() {
                   <SelectValue placeholder="Selecione o setor..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {sectors.filter(s => s.id !== currentUser.sector).map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name} ({s.code})</SelectItem>
+                  {sectors.filter(s => s.name !== currentUser.sector.name).map(s => (
+                    <SelectItem key={s.name} value={s.name}>{s.name} ({s.code})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

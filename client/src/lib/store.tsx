@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Sector, Document, Patient, DocumentEvent, DocumentType } from './types';
+import { User, Sector, Document, Patient, DocumentEvent, DocumentType, DashboardDocuments, DashboardDocument } from './types';
 import {
   getUserProfile,
   clearUserProfile,
@@ -10,7 +10,10 @@ import {
   clearSectorsCache,
   loadUsersFromCache,
   saveUsersToCache,
-  clearUsersCache
+  clearUsersCache,
+  loadDashboardDocsFromCache,
+  saveDashboardDocsToCache,
+  clearDashboardDocsCache
 } from '@/lib/indexedDb';
 import { graphqlFetch } from '@/lib/graphqlClient';
 
@@ -34,6 +37,7 @@ interface AppState {
   isInitialized: boolean;
   sectors: Sector[];
   documents: Document[];
+  dashboardDocuments: DashboardDocuments | null; // New dashboard documents from GraphQL
   patients: Patient[];
   events: DocumentEvent[];
   users: User[]; // For now this can represent only the currently logged in user in an array
@@ -41,6 +45,7 @@ interface AppState {
   logout: () => void;
   loadSectors: (user: User) => Promise<void>;
   loadUsers: (user: User) => Promise<void>;
+  loadDashboardDocuments: () => Promise<void>;
   registerDocument: (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   editDocument: (docId: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   dispatchDocument: (docId: string, targetSectorId: string) => void;
@@ -73,6 +78,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [documents, setDocuments] = useState<Document[]>(MOCK_DOCS);
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [events, setEvents] = useState<DocumentEvent[]>(MOCK_EVENTS);
+  const [dashboardDocuments, setDashboardDocuments] = useState<DashboardDocuments | null>(null);
 
   useEffect(() => {
     const loadUserAndSectorsFromDb = async () => {
@@ -301,6 +307,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearAllViewData(),
       clearSectorsCache(),
       clearUsersCache(),
+      clearDashboardDocsCache(),
     ]).catch((err) => console.error('Erro ao limpar dados do usuário no IndexedDB', err));
   };
 
@@ -835,6 +842,144 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const loadDashboardDocuments = async () => {
+    if (!currentUser) return;
+
+    try {
+      // First try to load from cache
+      const cached = await loadDashboardDocsFromCache();
+      const FIVE_MINUTES_MS = 5 * 60 * 1000; // Cache for 5 minutes
+      const now = Date.now();
+
+      if (cached && cached.inventory && cached.inbox && cached.outbox) {
+        const isStale = now - cached.updatedAt > FIVE_MINUTES_MS;
+
+        // Set cached data immediately
+        setDashboardDocuments({
+          inventory: cached.inventory,
+          inbox: cached.inbox,
+          outbox: cached.outbox
+        });
+
+        // If not stale, return early
+        if (!isStale) {
+          return;
+        }
+      }
+
+      // Load from GraphQL API
+      const query = `
+        query ListDocumentsForDashboard {
+          listDocumentsForDashboard {
+            inventory {
+              id
+              number
+              name
+              type
+              observations
+              sector {
+                name
+                code
+              }
+              history {
+                action
+                user
+                sector {
+                  name
+                  code
+                }
+                dateTime
+                description
+              }
+            }
+            inbox {
+              id
+              number
+              name
+              type
+              observations
+              sector {
+                name
+                code
+              }
+              history {
+                action
+                user
+                sector {
+                  name
+                  code
+                }
+                dateTime
+                description
+              }
+            }
+            outbox {
+              id
+              number
+              name
+              type
+              observations
+              sector {
+                name
+                code
+              }
+              history {
+                action
+                user
+                sector {
+                  name
+                  code
+                }
+                dateTime
+                description
+              }
+            }
+          }
+        }
+      `;
+
+      const result = await graphqlFetch<{ listDocumentsForDashboard: DashboardDocuments }>({
+        query,
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro ao carregar documentos do dashboard');
+      }
+
+      const dashboardData = result.data?.listDocumentsForDashboard;
+      if (dashboardData) {
+        console.log('Got dashboard documents from API:', dashboardData);
+        setDashboardDocuments(dashboardData);
+
+        // Persist in cache with timestamp
+        console.log('Saving dashboard documents to cache...');
+        await saveDashboardDocsToCache({
+          inventory: dashboardData.inventory,
+          inbox: dashboardData.inbox,
+          outbox: dashboardData.outbox,
+          updatedAt: Date.now(),
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao carregar documentos do dashboard', err);
+      // Fallback to cache if available and not already loaded
+      if (!dashboardDocuments) {
+        try {
+          const cached = await loadDashboardDocsFromCache();
+          if (cached && cached.inventory && cached.inbox && cached.outbox) {
+            setDashboardDocuments({
+              inventory: cached.inventory,
+              inbox: cached.inbox,
+              outbox: cached.outbox
+            });
+          }
+        } catch (cacheErr) {
+          console.error('Erro ao carregar documentos do cache', cacheErr);
+        }
+      }
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -842,6 +987,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isInitialized,
         sectors,
         documents,
+        dashboardDocuments,
         patients,
         events,
         users,
@@ -849,6 +995,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         logout,
         loadSectors: refreshSectorsFromApi,
         loadUsers: refreshUsersFromApi,
+        loadDashboardDocuments,
         registerDocument,
         editDocument,
         dispatchDocument,

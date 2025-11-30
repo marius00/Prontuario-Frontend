@@ -11,3 +11,5 @@ Missing:
 * dashboard should only show recents
 ** When adding a new user/sector, if the user already exists, re-use the password
 ** There is no hover effect on buttons, so it feels very broken
+* "require password reset on next login" when creating user.. needs backend + frontend support.
+* Need to go over the repo, lots of minor mistakes made, vars not existing etc.
