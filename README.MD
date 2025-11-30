@@ -8,5 +8,5 @@ Missing:
 * Hamburger on search should also have edit if you made it, since it wont be on dashboard after a while
 * dashboard should only show recents
 ** When adding a new user/sector, if the user already exists, re-use the password
-
+** There is no hover effect on buttons, so it feels very broken
 Name: Protocolo Digital

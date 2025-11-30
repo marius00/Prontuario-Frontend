@@ -84,7 +84,7 @@ export default function AdminPage() {
     });
   };
 
-  const handleAddSector = () => {
+  const handleAddSector = async () => {
     if (!newSectorName || !newSectorCode) {
       toast({
         title: "Erro",
@@ -94,15 +94,33 @@ export default function AdminPage() {
       return;
     }
 
-    addSector(newSectorName, newSectorCode.toUpperCase());
-    toast({
-      title: "Sucesso",
-      description: "Setor adicionado com sucesso.",
-    });
+    try {
+      const result = await addSector(newSectorName, newSectorCode.toUpperCase());
 
-    setNewSectorName('');
-    setNewSectorCode('');
-    setShowAddSectorDialog(false);
+      if (result.success) {
+        toast({
+          title: "Sucesso",
+          description: "Setor adicionado com sucesso.",
+        });
+
+        setNewSectorName('');
+        setNewSectorCode('');
+        setShowAddSectorDialog(false);
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Falha ao adicionar setor.",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      console.error('Erro ao adicionar setor', err);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao adicionar setor.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDisableSector = (sectorId: string, sectorName: string) => {

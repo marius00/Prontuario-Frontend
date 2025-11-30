@@ -53,7 +53,7 @@ interface AppState {
   addUser: (name: string, sectorId: string, role: 'admin' | 'staff') => void;
   resetUserPassword: (userId: string) => void;
   deactivateUser: (userId: string) => void;
-  addSector: (name: string, code: string) => void;
+  addSector: (name: string, code: string) => Promise<{ success: boolean; error?: string }>;
   disableSector: (sectorId: string) => void;
   bulkDispatchDocuments: (docIds: string[], targetSectorId: string) => void;
 }
@@ -429,13 +429,66 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, active: false } : u));
   };
 
-  const addSector = (name: string, code: string) => {
-    const newSector: Sector = {
-      name,
-      code,
-      active: true
-    };
-    setSectors(prev => [...prev, newSector]);
+  const addSector = async (name: string, code: string): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
+    try {
+      const mutation = `
+        mutation CreateSector($name: String!, $code: String) {
+          createSector(name: $name, code: $code) {
+            success
+          }
+        }
+      `;
+
+      const result = await graphqlFetch<{ createSector: { success: boolean } }>({
+        query: mutation,
+        variables: { name, code },
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro desconhecido ao criar setor');
+      }
+
+      const response = result.data?.createSector;
+      if (!response?.success) {
+        return { success: false, error: 'Falha ao criar setor no servidor' };
+      }
+
+      // Success: add to local store
+      const newSector: Sector = {
+        name,
+        code: code || name.substring(0, 3).toUpperCase(),
+        active: true
+      };
+      setSectors(prev => [...prev, newSector]);
+
+      // Update IndexedDB cache
+      try {
+        const cached = await loadSectorsFromCache();
+        if (cached && Array.isArray(cached.sectors)) {
+          const updatedSectors = [...cached.sectors, {
+            name: newSector.name,
+            code: newSector.code ?? newSector.name.substring(0, 3).toUpperCase(),
+            active: newSector.active
+          }];
+          await saveSectorsToCache({
+            sectors: updatedSectors,
+            updatedAt: Date.now(),
+          });
+        }
+      } catch (err) {
+        console.error('Erro ao atualizar cache de setores', err);
+        // Don't fail the operation if cache update fails
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Erro ao criar setor', err);
+      return { success: false, error: err.message || 'Erro ao criar setor' };
+    }
   };
 
   const disableSector = (sectorId: string) => {
