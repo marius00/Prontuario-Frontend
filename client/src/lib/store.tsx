@@ -1,26 +1,29 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Sector, Document, Patient, DocumentEvent, DocumentType } from './types';
- import { getUserProfile, clearUserProfile, clearAuthToken, clearAllViewData } from '@/lib/indexedDb';
+import {
+  getUserProfile,
+  clearUserProfile,
+  clearAuthToken,
+  clearAllViewData,
+  loadSectorsFromCache,
+  saveSectorsToCache,
+  clearSectorsCache
+} from '@/lib/indexedDb';
+import { graphqlFetch } from '@/lib/graphqlClient';
 
 // Mock Data
-const MOCK_SECTORS: Sector[] = [
-  { id: 's1', name: 'Admissão', code: 'ADM' },
-  { id: 's2', name: 'Radiologia', code: 'RAD' },
-  { id: 's3', name: 'Cardiologia', code: 'CAR' },
-  { id: 's4', name: 'Arquivo', code: 'ARC' },
-];
-
+// Sectors are now loaded from the backend; keep only patients/docs/events mocked locally
 const MOCK_PATIENTS: Patient[] = [
   { id: 'p1', name: 'João Silva', numeroAtendimento: '12345' },
   { id: 'p2', name: 'Maria Santos', numeroAtendimento: '67890' },
 ];
 
 const MOCK_DOCS: Document[] = [
-  { id: 'DOC-1001', title: 'Raio-X Torax', type: 'Ficha', patientId: 'p1', currentSectorId: 's1', status: 'registered', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdByUserId: 'u1' },
+  { id: 'DOC-1001', title: 'Raio-X Torax', type: 'Ficha', patientId: 'p1', currentSectorId: 'Admissão', status: 'registered', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdByUserId: 'u1' },
 ];
 
 const MOCK_EVENTS: DocumentEvent[] = [
-  { id: 'e1', documentId: 'DOC-1001', type: 'created', timestamp: new Date().toISOString(), userId: 'u1', sectorId: 's1' }
+  { id: 'e1', documentId: 'DOC-1001', type: 'created', timestamp: new Date().toISOString(), userId: 'u1', sectorId: 'Admissão' }
 ];
 
 interface AppState {
@@ -33,6 +36,7 @@ interface AppState {
   users: User[]; // For now this can represent only the currently logged in user in an array
   login: (user: User) => void;
   logout: () => void;
+  loadSectors: (user: User) => Promise<void>;
   registerDocument: (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   editDocument: (docId: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   dispatchDocument: (docId: string, targetSectorId: string) => void;
@@ -60,14 +64,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
-  const [sectors, setSectors] = useState<Sector[]>(MOCK_SECTORS);
+  const [sectors, setSectors] = useState<Sector[]>([]);
   const [documents, setDocuments] = useState<Document[]>(MOCK_DOCS);
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [events, setEvents] = useState<DocumentEvent[]>(MOCK_EVENTS);
 
   useEffect(() => {
-    // Hydrate from IndexedDB user profile on app start
-    const loadUserFromDb = async () => {
+    const loadUserAndSectorsFromDb = async () => {
       try {
         const profile = await getUserProfile();
         if (profile && profile.isAuthenticated) {
@@ -75,11 +78,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             id: profile.id,
             username: profile.username,
             sector: { name: profile.sector.name, code: profile.sector.code },
-            role: profile.roles?.some((r) => r.role === 'ADMIN') ? 'admin' : 'staff',
+            role: profile.roles?.some((r) => r.role.toLowerCase() === 'admin') ? 'admin' : 'staff',
             active: true,
           };
           setCurrentUser(mappedUser);
           setUsers([mappedUser]);
+
+          const isAdmin = mappedUser.role === 'admin';
+          console.log('User role:', mappedUser.role, 'isAdmin:', isAdmin);
+
+          // First try to hydrate sectors from cache
+          try {
+            const cached = await loadSectorsFromCache();
+            const ONE_HOUR_MS = 60 * 60 * 1000;
+            const now = Date.now();
+
+            if (cached && Array.isArray(cached.sectors)) {
+              const mapped: Sector[] = cached.sectors.map((s) => ({
+                id: s.name,
+                name: s.name,
+                code: s.code,
+                active: s.active ?? true,
+              }));
+              setSectors(mapped);
+
+              const isStale = now - cached.updatedAt > ONE_HOUR_MS;
+
+              if (isAdmin && isStale) {
+                // Try background refresh; don't block initialization if it fails
+                refreshSectorsFromApi(mappedUser).catch((err) => {
+                  console.error('Erro ao atualizar setores da API', err);
+                });
+              }
+            } else if (isAdmin) {
+              // No cache; load from API immediately
+              console.log('No sectors cache, loading from API...');
+              await refreshSectorsFromApi(mappedUser);
+            } else {
+              console.log('User is not admin, skipping sectors load');
+            }
+          } catch (err) {
+            console.error('Erro ao carregar setores do cache', err);
+            if (isAdmin) {
+              await refreshSectorsFromApi(mappedUser);
+            }
+          }
         }
       } catch (err) {
         console.error('Erro ao carregar usuário do IndexedDB', err);
@@ -88,11 +131,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    loadUserFromDb();
+    loadUserAndSectorsFromDb();
   }, []);
 
+  const refreshSectorsFromApi = async (user: User) => {
+    console.log('refreshSectorsFromApi called for user:', user.username);
+    const query = `
+      query ListSectors {
+        listSectors {
+          code
+          name
+        }
+      }
+    `;
+
+    const result = await graphqlFetch<{ listSectors: { code: string | null; name: string }[] }>({
+      query,
+    });
+
+    if (result.errors) {
+      throw new Error(result.errors[0]?.message || 'Erro ao carregar setores da API');
+    }
+
+    const apiSectors: Sector[] = (result.data?.listSectors ?? []).map((s) => {
+      const name = s.name;
+      const code = s.code && s.code.trim().length > 0
+        ? s.code
+        : name.substring(0, 3).toUpperCase();
+      return {
+        name,
+        code,
+        active: true,
+      } as Sector;
+    });
+
+    console.log('Got sectors from API:', apiSectors);
+    setSectors(apiSectors);
+
+    // Persist in cache with timestamp
+    console.log('Saving sectors to cache...');
+    await saveSectorsToCache({
+      sectors: apiSectors.map((s) => ({ name: s.name, code: s.code ?? s.name.substring(0, 3).toUpperCase(), active: s.active ?? true })),
+      updatedAt: Date.now(),
+    });
+  };
+
   const login = (user: User) => {
-    // In the new model, users list is hydrated from whoAmI; simply ensure currentUser is consistent
     setCurrentUser((prev) => {
       if (prev && prev.id === user.id) return prev;
       return user;
@@ -108,6 +192,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearUserProfile(),
       clearAuthToken(),
       clearAllViewData(),
+      clearSectorsCache(),
     ]).catch((err) => console.error('Erro ao limpar dados do usuário no IndexedDB', err));
   };
 
@@ -346,7 +431,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addSector = (name: string, code: string) => {
     const newSector: Sector = {
-      id: `s${Date.now()}`,
       name,
       code,
       active: true
@@ -355,48 +439,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const disableSector = (sectorId: string) => {
-    setSectors(prev => prev.map(s => s.id === sectorId ? { ...s, active: false } : s));
+    setSectors(prev => prev.map(s => s.name === sectorId ? { ...s, active: false } : s));
   };
 
   const bulkDispatchDocuments = (docIds: string[], targetSectorId: string) => {
     if (!currentUser) return;
-    
+
     docIds.forEach(docId => {
       dispatchDocument(docId, targetSectorId);
     });
   };
 
   return (
-    <AppContext.Provider value={{
-      currentUser,
-      isInitialized,
-      sectors,
-      documents,
-      patients,
-      events,
-      users,
-      login,
-      logout,
-      registerDocument,
-      editDocument,
-      dispatchDocument,
-      cancelDispatch,
-      receiveDocument,
-      rejectDocument,
-      undoLastAction,
-      getDocumentsBySector,
-      getIncomingDocuments,
-      getOutgoingPendingDocuments,
-      getDocumentHistory,
-      getPatientDocuments,
-      requestDocument,
-      addUser,
-      resetUserPassword,
-      deactivateUser,
-      addSector,
-      disableSector,
-      bulkDispatchDocuments
-    }}>
+    <AppContext.Provider
+      value={{
+        currentUser,
+        isInitialized,
+        sectors,
+        documents,
+        patients,
+        events,
+        users,
+        login,
+        logout,
+        loadSectors: refreshSectorsFromApi,
+        registerDocument,
+        editDocument,
+        dispatchDocument,
+        cancelDispatch,
+        receiveDocument,
+        rejectDocument,
+        undoLastAction,
+        getDocumentsBySector,
+        getIncomingDocuments,
+        getOutgoingPendingDocuments,
+        getDocumentHistory,
+        getPatientDocuments,
+        requestDocument,
+        addUser,
+        resetUserPassword,
+        deactivateUser,
+        addSector,
+        disableSector,
+        bulkDispatchDocuments,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );

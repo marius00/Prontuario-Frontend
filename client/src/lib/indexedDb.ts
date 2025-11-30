@@ -1,17 +1,21 @@
-// Centralized IndexedDB utilities for DocuTrackr
+// Centralized IndexedDB utilities for prontuario
 // This module is safe to import in React components; it only touches `indexedDB` at call time.
 
-const AUTH_DB_NAME = 'docutrackr-auth';
-const AUTH_DB_VERSION = 3;
+const DB_NAME = 'prontuario';
+const DB_VERSION = 5;
 const AUTH_STORE_NAME = 'auth';
 const AUTH_TOKEN_KEY = 'token';
 
-const DATA_DB_NAME = 'docutrackr-data';
-const DATA_DB_VERSION = 3;
 const DATA_STORE_NAME = 'views';
 
 const USER_STORE_NAME = 'user';
 const USER_KEY = 'currentUser';
+const SECTORS_KEY = 'sectors';
+
+interface StoredSectorsPayload {
+  sectors: { name: string; code: string; active?: boolean }[];
+  updatedAt: number; // epoch ms
+}
 
 function openDb(name: string, version: number, onUpgrade: (db: IDBDatabase) => void): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -34,7 +38,7 @@ function openDb(name: string, version: number, onUpgrade: (db: IDBDatabase) => v
 // ---- Auth token helpers ----
 
 async function openAuthDb(): Promise<IDBDatabase> {
-  return openDb(AUTH_DB_NAME, AUTH_DB_VERSION, (db) => {
+  return openDb(DB_NAME, DB_VERSION, (db) => {
     if (!db.objectStoreNames.contains(AUTH_STORE_NAME)) {
       db.createObjectStore(AUTH_STORE_NAME);
     }
@@ -80,7 +84,7 @@ export async function clearAuthToken(): Promise<void> {
 // ---- Generic view data helpers ----
 
 async function openDataDb(): Promise<IDBDatabase> {
-  return openDb(DATA_DB_NAME, DATA_DB_VERSION, (db) => {
+  return openDb(DB_NAME, DB_VERSION, (db) => {
     if (!db.objectStoreNames.contains(DATA_STORE_NAME)) {
       db.createObjectStore(DATA_STORE_NAME);
     }
@@ -138,7 +142,7 @@ export async function clearAllViewData(): Promise<void> {
 // ---- User profile helpers ----
 
 async function openUserDb(): Promise<IDBDatabase> {
-  return openDb(AUTH_DB_NAME, AUTH_DB_VERSION, (db) => {
+  return openDb(DB_NAME, DB_VERSION, (db) => {
     if (!db.objectStoreNames.contains(AUTH_STORE_NAME)) {
       db.createObjectStore(AUTH_STORE_NAME);
     }
@@ -191,6 +195,74 @@ export async function clearUserProfile(): Promise<void> {
     const tx = db.transaction(USER_STORE_NAME, 'readwrite');
     const store = tx.objectStore(USER_STORE_NAME);
     store.delete(USER_KEY);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ---- Sectors cache helpers ----
+
+async function openSectorsDb(): Promise<IDBDatabase> {
+  console.log("opendb::outer called")
+  return openDb(DB_NAME, DB_VERSION, (db) => {
+    console.log("opendb called")
+    if (!db.objectStoreNames.contains(USER_STORE_NAME)) {
+      db.createObjectStore(USER_STORE_NAME);
+      console.log("Sectors store created");
+    } else {
+      console.log("Sectors store already exists");
+    }
+  });
+}
+
+
+
+export async function saveSectorsToCache(payload: StoredSectorsPayload): Promise<void> {
+  console.log('saveSectorsToCache called with:', payload);
+  const db = await openSectorsDb();
+  return new Promise((resolve, reject) => {
+    console.log("Opened sectors DB, starting transaction");
+    const tx = db.transaction(USER_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(USER_STORE_NAME);
+    store.put(payload, SECTORS_KEY);
+
+    tx.oncomplete = () => {
+      console.log('saveSectorsToCache completed successfully');
+      resolve();
+    };
+    tx.onerror = () => {
+      console.error('saveSectorsToCache error:', tx.error);
+      reject(tx.error);
+    };
+  });
+}
+
+export async function loadSectorsFromCache(): Promise<StoredSectorsPayload | undefined> {
+  console.log('loadSectorsFromCache called');
+  const db = await openSectorsDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(USER_STORE_NAME, 'readonly');
+    const store = tx.objectStore(USER_STORE_NAME);
+    const req = store.get(SECTORS_KEY);
+
+    req.onsuccess = () => {
+      console.log('loadSectorsFromCache result:', req.result);
+      resolve(req.result as StoredSectorsPayload | undefined);
+    };
+    req.onerror = () => {
+      console.error('loadSectorsFromCache error:', req.error);
+      reject(req.error);
+    };
+  });
+}
+
+export async function clearSectorsCache(): Promise<void> {
+  const db = await openSectorsDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(USER_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(USER_STORE_NAME);
+    store.delete(SECTORS_KEY);
 
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);

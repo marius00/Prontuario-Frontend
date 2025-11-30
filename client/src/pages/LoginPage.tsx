@@ -12,7 +12,7 @@ import { graphqlFetch } from '@/lib/graphqlClient';
 import {User} from "@/lib/types.ts";
 
 export default function LoginPage() {
-  const { currentUser, sectors, login } = useApp();
+  const { currentUser, sectors, login, loadSectors } = useApp();
   const [, setLocation] = useLocation();
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [password, setPassword] = useState('');
@@ -131,11 +131,23 @@ export default function LoginPage() {
         id: whoAmI.id,
         username: whoAmI.username,
         sector: { name: whoAmI.sector.name, code: whoAmI.sector.code },
-        role: whoAmI.roles?.some((r) => r.role === 'ADMIN') ? 'admin' : 'staff',
+        role: whoAmI.roles?.some((r) => r.role.toLowerCase() === 'admin') ? 'admin' : 'staff',
         active: true,
       };
 
       login(mappedUser);
+
+      // Load sectors if user is admin
+      if (mappedUser.role === 'admin') {
+        console.log('Loading sectors for admin user after login...');
+        try {
+          await loadSectors(mappedUser);
+        } catch (err) {
+          console.error('Erro ao carregar setores após login', err);
+          // Don't block navigation if sectors fail to load
+        }
+      }
+
       setLocation('/');
     } catch (err: any) {
       console.error('Erro no login', err);

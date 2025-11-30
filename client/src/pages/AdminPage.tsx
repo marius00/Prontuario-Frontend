@@ -142,7 +142,7 @@ export default function AdminPage() {
                   <div>
                     <h3 className="font-semibold text-lg">{user.username}</h3>
                     <p className="text-xs text-muted-foreground">
-                      {user.role === 'admin' ? 'Administrador' : 'Equipe'} • Setor: {sectors.find(s => s.id === user.sector)?.name}
+                      {user.role === 'admin' ? 'Administrador' : 'Equipe'} • Setor: {sectors.find(s => s.name === user.sector.name)?.name}
                     </p>
                   </div>
                   <span className="text-xs font-mono bg-primary/10 px-2 py-1 rounded text-primary">
@@ -180,7 +180,7 @@ export default function AdminPage() {
 
           <div className="space-y-3">
             {activeSectors.map(sector => (
-              <div key={sector.id} className="border rounded-lg p-4 bg-card" data-testid={`card-sector-${sector.id}`}>
+              <div key={sector.name} className="border rounded-lg p-4 bg-card" data-testid={`card-sector-${sector.name}`}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="font-semibold text-lg">{sector.name}</h3>
@@ -191,11 +191,11 @@ export default function AdminPage() {
                   </span>
                 </div>
                 <Button 
-                  onClick={() => handleDisableSector(sector.id, sector.name)}
+                  onClick={() => handleDisableSector(sector.name, sector.name)}
                   variant="destructive" 
                   size="sm" 
                   className="w-full"
-                  data-testid={`button-disable-sector-${sector.id}`}
+                  data-testid={`button-disable-sector-${sector.name}`}
                 >
                   <Trash2 className="mr-2 h-3 w-3" />
                   Desativar Setor
@@ -234,7 +234,7 @@ export default function AdminPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {sectors.filter(s => s.active !== false).map(sector => (
-                    <SelectItem key={sector.id} value={sector.id}>
+                    <SelectItem key={sector.name} value={sector.name}>
                       {sector.name}
                     </SelectItem>
                   ))}
