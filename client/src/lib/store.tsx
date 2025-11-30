@@ -50,7 +50,7 @@ interface AppState {
   getDocumentHistory: (docId: string) => DocumentEvent[];
   getPatientDocuments: (patientName: string) => { patient: Patient | undefined, docs: Document[] };
   requestDocument: (docId: string, reason: string) => void;
-  addUser: (name: string, sectorId: string, role: 'admin' | 'staff') => void;
+  addUser: (name: string, sectorId: string, role: 'admin' | 'staff') => Promise<{ success: boolean; password?: string; error?: string }>;
   resetUserPassword: (userId: string) => void;
   deactivateUser: (userId: string) => void;
   addSector: (name: string, code: string) => Promise<{ success: boolean; error?: string }>;
@@ -409,15 +409,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setEvents(prev => [...prev, newEvent]);
   };
 
-  const addUser = (name: string, sectorId: string, role: 'admin' | 'staff') => {
-    const newUser: User = {
-      id: `u${Date.now()}`,
-      username: name,
-      sector: { name: sectorId, code: "?" },
-      role,
-      active: true
-    };
-    setUsers(prev => [...prev, newUser]);
+  const addUser = async (name: string, sectorId: string, role: 'admin' | 'staff'): Promise<{ success: boolean; password?: string; error?: string }> => {
+    if (!currentUser) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
+    try {
+      // Map role to GraphQL enum
+      const graphqlRole = role === 'admin' ? 'ADMIN' : 'USER';
+
+      const mutation = `
+        mutation CreateUser($username: String!, $sector: String!, $role: RoleEnum!) {
+          createUser(username: $username, sector: $sector, role: $role) {
+            id
+            password
+          }
+        }
+      `;
+
+      const result = await graphqlFetch<{ createUser: { id: number; password: string } }>({
+        query: mutation,
+        variables: { username: name, sector: sectorId, role: graphqlRole },
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro desconhecido ao criar usuário');
+      }
+
+      const response = result.data?.createUser;
+      if (!response?.id || !response?.password) {
+        return { success: false, error: 'Resposta inválida do servidor' };
+      }
+
+      // Success: add to local store
+      const newUser: User = {
+        id: response.id.toString(),
+        username: name,
+        sector: { name: sectorId, code: "?" },
+        role,
+        active: true
+      };
+      setUsers(prev => [...prev, newUser]);
+
+      // Update IndexedDB cache if needed (users list isn't currently cached separately)
+      // Could add user caching here in the future if needed
+
+      return { success: true, password: response.password };
+    } catch (err: any) {
+      console.error('Erro ao criar usuário', err);
+      return { success: false, error: err.message || 'Erro ao criar usuário' };
+    }
   };
 
   const resetUserPassword = (userId: string) => {

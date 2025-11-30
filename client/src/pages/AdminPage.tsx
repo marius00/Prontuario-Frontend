@@ -29,9 +29,14 @@ export default function AdminPage() {
   const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState<{ id: string; name: string } | null>(null);
   const [newPassword, setNewPassword] = useState('');
+
+  // Password display state (for new user creation)
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [createdUserName, setCreatedUserName] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
 
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!newUserName || !newUserSector) {
       toast({
         title: "Erro",
@@ -41,16 +46,41 @@ export default function AdminPage() {
       return;
     }
 
-    addUser(newUserName, newUserSector, newUserRole);
-    toast({
-      title: "Sucesso",
-      description: "Usuário adicionado com sucesso.",
-    });
+    try {
+      const result = await addUser(newUserName, newUserSector, newUserRole);
 
-    setNewUserName('');
-    setNewUserSector('');
-    setNewUserRole('staff');
-    setShowAddUserDialog(false);
+      if (result.success && result.password) {
+        // Show success message
+        toast({
+          title: "Sucesso",
+          description: "Usuário adicionado com sucesso.",
+        });
+
+        // Set password modal data and show it
+        setCreatedUserName(newUserName);
+        setGeneratedPassword(result.password);
+        setShowPasswordModal(true);
+
+        // Clear form and close add user dialog
+        setNewUserName('');
+        setNewUserSector('');
+        setNewUserRole('staff');
+        setShowAddUserDialog(false);
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Falha ao adicionar usuário.",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      console.error('Erro ao adicionar usuário', err);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao adicionar usuário.",
+        variant: "destructive"
+      });
+    }
   };
 
   const generatePassword = (): string => {
@@ -72,6 +102,12 @@ export default function AdminPage() {
 
   const handleCopyPassword = () => {
     navigator.clipboard.writeText(newPassword);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
+
+  const handleCopyGeneratedPassword = () => {
+    navigator.clipboard.writeText(generatedPassword);
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2000);
   };
@@ -337,6 +373,48 @@ export default function AdminPage() {
           </div>
           <DialogFooter>
             <Button onClick={() => setShowResetPasswordDialog(false)} data-testid="button-close-password-dialog">
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generated Password Display Modal */}
+      <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Usuário Criado</DialogTitle>
+            <DialogDescription>
+              Senha gerada para {createdUserName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Sua senha:</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={generatedPassword}
+                  readOnly
+                  className="font-mono text-sm"
+                  data-testid="input-generated-password-display"
+                />
+                <Button
+                  onClick={handleCopyGeneratedPassword}
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-copy-generated-password"
+                >
+                  {copySuccess ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Esta é uma senha única. Clique no ícone para copiar.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowPasswordModal(false)} data-testid="button-close-generated-password-dialog">
               Fechar
             </Button>
           </DialogFooter>
