@@ -38,6 +38,11 @@ export default function AdminPage() {
   // User deactivation confirmation state
   const [showDeactivateUserDialog, setShowDeactivateUserDialog] = useState(false);
   const [userToDeactivate, setUserToDeactivate] = useState<{ username: string; name: string } | null>(null);
+
+  // Password reset confirmation state
+  const [showResetPasswordConfirmDialog, setShowResetPasswordConfirmDialog] = useState(false);
+  const [userToResetPassword, setUserToResetPassword] = useState<{ username: string; name: string } | null>(null);
+
   const [copySuccess, setCopySuccess] = useState(false);
 
   const handleAddUser = async () => {
@@ -87,21 +92,45 @@ export default function AdminPage() {
     }
   };
 
-  const generatePassword = (): string => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let password = '';
-    for (let i = 0; i < 10; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
+
+
+  const handleResetPassword = (username: string, userName: string) => {
+    setUserToResetPassword({ username, name: userName });
+    setShowResetPasswordConfirmDialog(true);
   };
 
-  const handleResetPassword = (userId: string, userName: string) => {
-    const tempPassword = generatePassword();
-    setNewPassword(tempPassword);
-    setResetPasswordUser({ id: userId, name: userName });
-    setShowResetPasswordDialog(true);
-    resetUserPassword(userId);
+  const confirmResetPassword = async () => {
+    if (!userToResetPassword) return;
+
+    try {
+      const result = await resetUserPassword(userToResetPassword.username);
+
+      if (result.success && result.password) {
+        setNewPassword(result.password);
+        setResetPasswordUser({ id: userToResetPassword.username, name: userToResetPassword.name });
+        setShowResetPasswordDialog(true);
+        setShowResetPasswordConfirmDialog(false);
+        setUserToResetPassword(null);
+
+        toast({
+          title: "Sucesso",
+          description: "Senha resetada com sucesso.",
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Falha ao resetar senha.",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      console.error('Erro ao resetar senha', err);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao resetar senha.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleCopyPassword = () => {
@@ -260,7 +289,7 @@ export default function AdminPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.username)} data-testid={`menu-reset-password-${user.id}`}>
+                    <DropdownMenuItem onClick={() => handleResetPassword(user.username, user.username)} data-testid={`menu-reset-password-${user.id}`}>
                       <RotateCcw className="mr-2 h-4 w-4" />
                       Resetar Senha
                     </DropdownMenuItem>
@@ -480,6 +509,38 @@ export default function AdminPage() {
               data-testid="button-confirm-deactivate-user"
             >
               Desativar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Reset Confirmation Dialog */}
+      <Dialog open={showResetPasswordConfirmDialog} onOpenChange={setShowResetPasswordConfirmDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Reset de Senha</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja resetar a senha do usuário {userToResetPassword?.name}?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Uma nova senha será gerada automaticamente para o usuário. A senha atual será invalidada imediatamente.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowResetPasswordConfirmDialog(false)}
+              data-testid="button-cancel-reset-password"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={confirmResetPassword}
+              data-testid="button-confirm-reset-password"
+            >
+              Resetar Senha
             </Button>
           </DialogFooter>
         </DialogContent>

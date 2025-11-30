@@ -55,7 +55,7 @@ interface AppState {
   getPatientDocuments: (patientName: string) => { patient: Patient | undefined, docs: Document[] };
   requestDocument: (docId: string, reason: string) => void;
   addUser: (name: string, sectorId: string, role: 'admin' | 'staff') => Promise<{ success: boolean; password?: string; error?: string }>;
-  resetUserPassword: (userId: string) => void;
+  resetUserPassword: (username: string) => Promise<{ success: boolean; password?: string; error?: string }>;
   deactivateUser: (username: string) => Promise<{ success: boolean; error?: string }>;
   addSector: (name: string, code: string) => Promise<{ success: boolean; error?: string }>;
   disableSector: (sectorName: string) => Promise<{ success: boolean; error?: string }>;
@@ -271,7 +271,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       users: apiUsers.map((u) => ({
         id: u.id,
         username: u.username,
-        sector: u.sector,
+        sector: {
+          name: u.sector.name,
+          code: u.sector.code || u.sector.name.substring(0, 3).toUpperCase()
+        },
         role: u.role,
         active: u.active ?? true
       })),
@@ -582,9 +585,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const resetUserPassword = (userId: string) => {
-    // In mockup mode, just log the action
-    console.log('Password reset for user:', userId);
+  const resetUserPassword = async (username: string): Promise<{ success: boolean; password?: string; error?: string }> => {
+    if (!currentUser) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
+    try {
+      const mutation = `
+        mutation ResetPassword($username: String!) {
+          resetPassword(username: $username) {
+            password
+          }
+        }
+      `;
+
+      const result = await graphqlFetch<{ resetPassword: { password: string } }>({
+        query: mutation,
+        variables: { username },
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro desconhecido ao resetar senha');
+      }
+
+      const response = result.data?.resetPassword;
+      if (!response?.password) {
+        return { success: false, error: 'Resposta inválida do servidor' };
+      }
+
+      return { success: true, password: response.password };
+    } catch (err: any) {
+      console.error('Erro ao resetar senha', err);
+      return { success: false, error: err.message || 'Erro ao resetar senha' };
+    }
   };
 
   const deactivateUser = async (username: string): Promise<{ success: boolean; error?: string }> => {
