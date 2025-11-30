@@ -34,6 +34,10 @@ export default function AdminPage() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [createdUserName, setCreatedUserName] = useState('');
+
+  // User deactivation confirmation state
+  const [showDeactivateUserDialog, setShowDeactivateUserDialog] = useState(false);
+  const [userToDeactivate, setUserToDeactivate] = useState<{ username: string; name: string } | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
 
   const handleAddUser = async () => {
@@ -112,12 +116,39 @@ export default function AdminPage() {
     setTimeout(() => setCopySuccess(false), 2000);
   };
 
-  const handleDeactivateUser = (userId: string, userName: string) => {
-    deactivateUser(userId);
-    toast({
-      title: "Sucesso",
-      description: `Usuário ${userName} foi desativado.`,
-    });
+  const handleDeactivateUser = (username: string, userName: string) => {
+    setUserToDeactivate({ username, name: userName });
+    setShowDeactivateUserDialog(true);
+  };
+
+  const confirmDeactivateUser = async () => {
+    if (!userToDeactivate) return;
+
+    try {
+      const result = await deactivateUser(userToDeactivate.username);
+
+      if (result.success) {
+        toast({
+          title: "Sucesso",
+          description: `Usuário ${userToDeactivate.name} foi desativado.`,
+        });
+        setShowDeactivateUserDialog(false);
+        setUserToDeactivate(null);
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Falha ao desativar usuário.",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      console.error('Erro ao desativar usuário', err);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao desativar usuário.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleAddSector = async () => {
@@ -233,7 +264,7 @@ export default function AdminPage() {
                       <RotateCcw className="mr-2 h-4 w-4" />
                       Resetar Senha
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDeactivateUser(user.id, user.username)} className="text-destructive focus:text-destructive" data-testid={`menu-deactivate-${user.id}`}>
+                    <DropdownMenuItem onClick={() => handleDeactivateUser(user.username, user.username)} className="text-destructive focus:text-destructive" data-testid={`menu-deactivate-${user.id}`}>
                       <Trash2 className="mr-2 h-4 w-4" />
                       Desativar
                     </DropdownMenuItem>
@@ -416,6 +447,39 @@ export default function AdminPage() {
           <DialogFooter>
             <Button onClick={() => setShowPasswordModal(false)} data-testid="button-close-generated-password-dialog">
               Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* User Deactivation Confirmation Dialog */}
+      <Dialog open={showDeactivateUserDialog} onOpenChange={setShowDeactivateUserDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Desativação</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja desativar o usuário {userToDeactivate?.name}?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Esta ação irá desativar permanentemente o usuário. O usuário não poderá mais fazer login no sistema.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeactivateUserDialog(false)}
+              data-testid="button-cancel-deactivate-user"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeactivateUser}
+              data-testid="button-confirm-deactivate-user"
+            >
+              Desativar
             </Button>
           </DialogFooter>
         </DialogContent>

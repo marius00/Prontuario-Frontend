@@ -40,6 +40,7 @@ interface AppState {
   login: (user: User) => void;
   logout: () => void;
   loadSectors: (user: User) => Promise<void>;
+  loadUsers: (user: User) => Promise<void>;
   registerDocument: (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   editDocument: (docId: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   dispatchDocument: (docId: string, targetSectorId: string) => void;
@@ -55,7 +56,7 @@ interface AppState {
   requestDocument: (docId: string, reason: string) => void;
   addUser: (name: string, sectorId: string, role: 'admin' | 'staff') => Promise<{ success: boolean; password?: string; error?: string }>;
   resetUserPassword: (userId: string) => void;
-  deactivateUser: (userId: string) => void;
+  deactivateUser: (username: string) => Promise<{ success: boolean; error?: string }>;
   addSector: (name: string, code: string) => Promise<{ success: boolean; error?: string }>;
   disableSector: (sectorName: string) => Promise<{ success: boolean; error?: string }>;
   bulkDispatchDocuments: (docIds: string[], targetSectorId: string) => void;
@@ -90,41 +91,78 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const isAdmin = mappedUser.role === 'admin';
           console.log('User role:', mappedUser.role, 'isAdmin:', isAdmin);
 
-          // First try to hydrate sectors from cache
-          try {
-            const cached = await loadSectorsFromCache();
-            const ONE_HOUR_MS = 60 * 60 * 1000;
-            const now = Date.now();
+          // Load both sectors and users if admin
+          if (isAdmin) {
+            // First try to hydrate sectors from cache
+            try {
+              const cached = await loadSectorsFromCache();
+              const ONE_HOUR_MS = 60 * 60 * 1000;
+              const now = Date.now();
 
-            if (cached && Array.isArray(cached.sectors)) {
-              const mapped: Sector[] = cached.sectors.map((s) => ({
-                id: s.name,
-                name: s.name,
-                code: s.code,
-                active: s.active ?? true,
-              }));
-              setSectors(mapped);
+              if (cached && Array.isArray(cached.sectors)) {
+                const mapped: Sector[] = cached.sectors.map((s) => ({
+                  id: s.name,
+                  name: s.name,
+                  code: s.code,
+                  active: s.active ?? true,
+                }));
+                setSectors(mapped);
 
-              const isStale = now - cached.updatedAt > ONE_HOUR_MS;
+                const isStale = now - cached.updatedAt > ONE_HOUR_MS;
 
-              if (isAdmin && isStale) {
-                // Try background refresh; don't block initialization if it fails
-                refreshSectorsFromApi(mappedUser).catch((err) => {
-                  console.error('Erro ao atualizar setores da API', err);
-                });
+                if (isStale) {
+                  // Try background refresh; don't block initialization if it fails
+                  refreshSectorsFromApi(mappedUser).catch((err) => {
+                    console.error('Erro ao atualizar setores da API', err);
+                  });
+                }
+              } else {
+                // No cache; load from API immediately
+                console.log('No sectors cache, loading from API...');
+                await refreshSectorsFromApi(mappedUser);
               }
-            } else if (isAdmin) {
-              // No cache; load from API immediately
-              console.log('No sectors cache, loading from API...');
-              await refreshSectorsFromApi(mappedUser);
-            } else {
-              console.log('User is not admin, skipping sectors load');
-            }
-          } catch (err) {
-            console.error('Erro ao carregar setores do cache', err);
-            if (isAdmin) {
+            } catch (err) {
+              console.error('Erro ao carregar setores do cache', err);
               await refreshSectorsFromApi(mappedUser);
             }
+
+            // Load users from cache/API
+            try {
+              const cachedUsers = await loadUsersFromCache();
+              const ONE_HOUR_MS = 60 * 60 * 1000;
+              const now = Date.now();
+
+              if (cachedUsers && Array.isArray(cachedUsers.users)) {
+                const mappedUsers: User[] = cachedUsers.users.map((u) => ({
+                  id: u.id,
+                  username: u.username,
+                  sector: u.sector,
+                  role: u.role,
+                  active: u.active ?? true,
+                }));
+                setUsers(mappedUsers);
+
+                const isStale = now - cachedUsers.updatedAt > ONE_HOUR_MS;
+
+                if (isStale) {
+                  // Try background refresh; don't block initialization if it fails
+                  refreshUsersFromApi(mappedUser).catch((err) => {
+                    console.error('Erro ao atualizar usuários da API', err);
+                  });
+                }
+              } else {
+                // No cache; load from API immediately
+                console.log('No users cache, loading from API...');
+                await refreshUsersFromApi(mappedUser);
+              }
+            } catch (err) {
+              console.error('Erro ao carregar usuários do cache', err);
+              await refreshUsersFromApi(mappedUser);
+            }
+          } else {
+            console.log('User is not admin, skipping sectors and users load');
+            // For non-admin users, only show themselves in the users list
+            setUsers([mappedUser]);
           }
         }
       } catch (err) {
@@ -179,6 +217,68 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const refreshUsersFromApi = async (user: User) => {
+    console.log('refreshUsersFromApi called for user:', user.username);
+    const query = `
+      query ListUsersDetailed {
+        listUsersDetailed {
+          id
+          username
+          sector {
+            name
+            code
+          }
+          roles {
+            role
+            level
+          }
+        }
+      }
+    `;
+
+    const result = await graphqlFetch<{
+      listUsersDetailed: Array<{
+        id: string;
+        username: string;
+        sector: { name: string; code?: string };
+        roles: Array<{ role: string; level: number }>;
+      }>
+    }>({
+      query,
+    });
+
+    if (result.errors) {
+      throw new Error(result.errors[0]?.message || 'Erro ao carregar usuários da API');
+    }
+
+    const apiUsers: User[] = (result.data?.listUsersDetailed ?? []).map((u) => ({
+      id: u.id,
+      username: u.username,
+      sector: {
+        name: u.sector.name,
+        code: u.sector.code || u.sector.name.substring(0, 3).toUpperCase()
+      },
+      role: u.roles?.some((r) => r.role.toLowerCase() === 'admin') ? 'admin' : 'staff',
+      active: true,
+    }));
+
+    console.log('Got users from API:', apiUsers);
+    setUsers(apiUsers);
+
+    // Persist in cache with timestamp
+    console.log('Saving users to cache...');
+    await saveUsersToCache({
+      users: apiUsers.map((u) => ({
+        id: u.id,
+        username: u.username,
+        sector: u.sector,
+        role: u.role,
+        active: u.active ?? true
+      })),
+      updatedAt: Date.now(),
+    });
+  };
+
   const login = (user: User) => {
     setCurrentUser((prev) => {
       if (prev && prev.id === user.id) return prev;
@@ -196,6 +296,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearAuthToken(),
       clearAllViewData(),
       clearSectorsCache(),
+      clearUsersCache(),
     ]).catch((err) => console.error('Erro ao limpar dados do usuário no IndexedDB', err));
   };
 
@@ -461,7 +562,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updatedUsers.push({
           id: newUser.id,
           username: newUser.username,
-          sector: newUser.sector,
+          sector: { name: newUser.sector.name, code: newUser.sector.code ?? newUser.sector.name.toUpperCase().substring(0, 3) },
           role: newUser.role,
           active: newUser.active
         });
@@ -486,8 +587,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     console.log('Password reset for user:', userId);
   };
 
-  const deactivateUser = (userId: string) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, active: false } : u));
+  const deactivateUser = async (username: string): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
+    try {
+      const mutation = `
+        mutation DeactivateUser($username: String!) {
+          deactivateUser(username: $username) {
+            success
+          }
+        }
+      `;
+
+      const result = await graphqlFetch<{ deactivateUser: { success: boolean } }>({
+        query: mutation,
+        variables: { username },
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro desconhecido ao desativar usuário');
+      }
+
+      const response = result.data?.deactivateUser;
+      if (!response?.success) {
+        return { success: false, error: 'Falha ao desativar usuário no servidor' };
+      }
+
+      // Success: remove from local store
+      setUsers(prev => prev.filter(u => u.username !== username));
+
+      // Update IndexedDB users cache
+      try {
+        const cached = await loadUsersFromCache();
+        if (cached && Array.isArray(cached.users)) {
+          const updatedUsers = cached.users.filter(u => u.username !== username);
+          await saveUsersToCache({
+            users: updatedUsers,
+            updatedAt: Date.now(),
+          });
+        }
+      } catch (err) {
+        console.error('Erro ao atualizar cache de usuários', err);
+        // Don't fail the operation if cache update fails
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Erro ao desativar usuário', err);
+      return { success: false, error: err.message || 'Erro ao desativar usuário' };
+    }
   };
 
   const addSector = async (name: string, code: string): Promise<{ success: boolean; error?: string }> => {
@@ -628,6 +778,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         loadSectors: refreshSectorsFromApi,
+        loadUsers: refreshUsersFromApi,
         registerDocument,
         editDocument,
         dispatchDocument,
