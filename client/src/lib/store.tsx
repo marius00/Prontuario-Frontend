@@ -75,7 +75,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             id: profile.id,
             username: profile.username,
             sector: { name: profile.sector.name, code: profile.sector.code },
-            role: profile.roles?.some((r) => r.role === 'admin') ? 'admin' : 'staff',
+            role: profile.roles?.some((r) => r.role === 'ADMIN') ? 'admin' : 'staff',
             active: true,
           };
           setCurrentUser(mappedUser);

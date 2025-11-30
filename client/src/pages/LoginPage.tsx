@@ -131,7 +131,7 @@ export default function LoginPage() {
         id: whoAmI.id,
         username: whoAmI.username,
         sector: { name: whoAmI.sector.name, code: whoAmI.sector.code },
-        role: whoAmI.roles?.some((r) => r.role === 'admin') ? 'admin' : 'staff',
+        role: whoAmI.roles?.some((r) => r.role === 'ADMIN') ? 'admin' : 'staff',
         active: true,
       };
 
