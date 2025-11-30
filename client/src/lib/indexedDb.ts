@@ -11,9 +11,15 @@ const DATA_STORE_NAME = 'views';
 const USER_STORE_NAME = 'user';
 const USER_KEY = 'currentUser';
 const SECTORS_KEY = 'sectors';
+const USERS_KEY = 'users';
 
 interface StoredSectorsPayload {
   sectors: { name: string; code: string; active?: boolean }[];
+  updatedAt: number; // epoch ms
+}
+
+interface StoredUsersPayload {
+  users: { id: string; username: string; sector: { name: string; code: string }; role: 'admin' | 'staff'; active?: boolean }[];
   updatedAt: number; // epoch ms
 }
 
@@ -263,6 +269,58 @@ export async function clearSectorsCache(): Promise<void> {
     const tx = db.transaction(USER_STORE_NAME, 'readwrite');
     const store = tx.objectStore(USER_STORE_NAME);
     store.delete(SECTORS_KEY);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ---- Users cache helpers ----
+
+export async function saveUsersToCache(payload: StoredUsersPayload): Promise<void> {
+  console.log('saveUsersToCache called with:', payload);
+  const db = await openSectorsDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(USER_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(USER_STORE_NAME);
+    store.put(payload, USERS_KEY);
+
+    tx.oncomplete = () => {
+      console.log('saveUsersToCache completed successfully');
+      resolve();
+    };
+    tx.onerror = () => {
+      console.error('saveUsersToCache error:', tx.error);
+      reject(tx.error);
+    };
+  });
+}
+
+export async function loadUsersFromCache(): Promise<StoredUsersPayload | undefined> {
+  console.log('loadUsersFromCache called');
+  const db = await openSectorsDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(USER_STORE_NAME, 'readonly');
+    const store = tx.objectStore(USER_STORE_NAME);
+    const req = store.get(USERS_KEY);
+
+    req.onsuccess = () => {
+      console.log('loadUsersFromCache result:', req.result);
+      resolve(req.result as StoredUsersPayload | undefined);
+    };
+    req.onerror = () => {
+      console.error('loadUsersFromCache error:', req.error);
+      reject(req.error);
+    };
+  });
+}
+
+export async function clearUsersCache(): Promise<void> {
+  const db = await openSectorsDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(USER_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(USER_STORE_NAME);
+    store.delete(USERS_KEY);
 
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);

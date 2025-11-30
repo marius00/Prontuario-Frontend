@@ -7,7 +7,10 @@ import {
   clearAllViewData,
   loadSectorsFromCache,
   saveSectorsToCache,
-  clearSectorsCache
+  clearSectorsCache,
+  loadUsersFromCache,
+  saveUsersToCache,
+  clearUsersCache
 } from '@/lib/indexedDb';
 import { graphqlFetch } from '@/lib/graphqlClient';
 
@@ -451,8 +454,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
       setUsers(prev => [...prev, newUser]);
 
-      // Update IndexedDB cache if needed (users list isn't currently cached separately)
-      // Could add user caching here in the future if needed
+      // Update IndexedDB users cache
+      try {
+        const cached = await loadUsersFromCache();
+        const updatedUsers = cached ? [...cached.users] : [];
+        updatedUsers.push({
+          id: newUser.id,
+          username: newUser.username,
+          sector: newUser.sector,
+          role: newUser.role,
+          active: newUser.active
+        });
+        await saveUsersToCache({
+          users: updatedUsers,
+          updatedAt: Date.now(),
+        });
+      } catch (err) {
+        console.error('Erro ao atualizar cache de usuários', err);
+        // Don't fail the operation if cache update fails
+      }
 
       return { success: true, password: response.password };
     } catch (err: any) {
