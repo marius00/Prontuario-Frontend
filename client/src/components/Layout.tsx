@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { currentUser, logout, sectors } = useApp();
+  const { currentUser, logout, sectors, resetOwnPassword } = useApp();
   const [location] = useLocation();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -23,9 +23,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
     return <div className="min-h-screen bg-background">{children}</div>;
   }
 
-  const currentSector = sectors.find(s => s.id === currentUser.sector.name);
+  const currentSector = sectors.find(s => s.name === currentUser.sector.name);
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast({
         title: "Erro",
@@ -53,15 +53,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    toast({
-      title: "Sucesso",
-      description: "Senha alterada com sucesso.",
-    });
+    try {
+      const result = await resetOwnPassword(currentPassword, newPassword);
 
-    setShowPasswordDialog(false);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+      if (result.success) {
+        toast({
+          title: "Sucesso",
+          description: "Senha alterada com sucesso.",
+        });
+
+        setShowPasswordDialog(false);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Falha ao alterar senha.",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      console.error('Erro ao alterar senha', err);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao alterar senha.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (

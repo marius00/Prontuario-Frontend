@@ -56,6 +56,7 @@ interface AppState {
   requestDocument: (docId: string, reason: string) => void;
   addUser: (name: string, sectorId: string, role: 'admin' | 'staff') => Promise<{ success: boolean; password?: string; error?: string }>;
   resetUserPassword: (username: string) => Promise<{ success: boolean; password?: string; error?: string }>;
+  resetOwnPassword: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   deactivateUser: (username: string) => Promise<{ success: boolean; error?: string }>;
   addSector: (name: string, code: string) => Promise<{ success: boolean; error?: string }>;
   disableSector: (sectorName: string) => Promise<{ success: boolean; error?: string }>;
@@ -620,6 +621,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resetOwnPassword = async (oldPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
+    try {
+      const mutation = `
+        mutation ResetOwnPassword($oldPassword: String!, $newPassword: String!) {
+          resetOwnPassword(oldPassword: $oldPassword, newPassword: $newPassword) {
+            password
+          }
+        }
+      `;
+
+      const result = await graphqlFetch<{ resetOwnPassword: { password: string } }>({
+        query: mutation,
+        variables: { oldPassword, newPassword },
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro desconhecido ao alterar senha');
+      }
+
+      const response = result.data?.resetOwnPassword;
+      if (!response) {
+        return { success: false, error: 'Falha ao alterar senha' };
+      }
+
+      // As long as we get a successful response, we're golden
+      return { success: true };
+    } catch (err: any) {
+      console.error('Erro ao alterar senha', err);
+      return { success: false, error: err.message || 'Erro ao alterar senha' };
+    }
+  };
+
   const deactivateUser = async (username: string): Promise<{ success: boolean; error?: string }> => {
     if (!currentUser) {
       return { success: false, error: 'Usuário não autenticado' };
@@ -827,6 +864,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         requestDocument,
         addUser,
         resetUserPassword,
+        resetOwnPassword,
         deactivateUser,
         addSector,
         disableSector,
