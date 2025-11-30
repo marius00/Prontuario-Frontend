@@ -14,11 +14,10 @@ import {User} from "@/lib/types.ts";
 export default function LoginPage() {
   const { currentUser, sectors, login } = useApp();
   const [, setLocation] = useLocation();
-  const [selectedUsername, setSelectedUsername] = useState('');
-  const [selectedSector, setSelectedSector] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [users, setUsers] = useState<{ name: string; sectorId: string }[]>([]);
+  const [users, setUsers] = useState<{ id: number; username: string; sector: string }[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -28,16 +27,17 @@ export default function LoginPage() {
         setLoadingUsers(true);
         setError('');
 
-        const query = `query {\n  listUsers {\n    username\n    sector\n  }\n}`;
-        const json = await graphqlFetch<{ listUsers: { username: string; sector: string }[] }>({ query });
+        const query = `query {\n  listUsers {\n    id\n    username\n    sector\n  }\n}`;
+        const json = await graphqlFetch<{ listUsers: { id: number; username: string; sector: string }[] }>({ query });
 
         if (json.errors) {
           throw new Error(json.errors[0]?.message || 'Erro desconhecido ao carregar usuários');
         }
 
         const apiUsers = (json.data?.listUsers ?? []).map((u) => ({
-          name: u.username,
-          sectorId: u.sector,
+          id: u.id,
+          username: u.username,
+          sector: u.sector,
         }));
 
         setUsers(apiUsers);
@@ -56,7 +56,9 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
 
-    if (!selectedUsername || !selectedSector || !password) {
+    const selectedUser = users.find((u) => u.id === selectedUserId);
+
+    if (!selectedUser || !password) {
       setError('Por favor, selecione um usuário e insira a senha');
       return;
     }
@@ -69,8 +71,8 @@ export default function LoginPage() {
       const json = await graphqlFetch<{ login: { success: boolean; token?: string } }>({
         query: mutation,
         variables: {
-          username: selectedUsername,
-          sector: selectedSector,
+          username: selectedUser.username,
+          sector: selectedUser.sector,
           password,
         },
       });
@@ -146,9 +148,12 @@ export default function LoginPage() {
   };
 
   const handleUserChange = (value: string) => {
-    setSelectedUsername(value);
-    const found = users.find((u) => u.name === value);
-    setSelectedSector(found?.sectorId ?? '');
+    const id = Number(value);
+    if (!Number.isNaN(id)) {
+      setSelectedUserId(id);
+    } else {
+      setSelectedUserId(null);
+    }
   };
 
   return (
@@ -171,11 +176,11 @@ export default function LoginPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {users.map((user) => (
-                    <SelectItem key={user.name} value={user.name}>
+                    <SelectItem key={user.id} value={String(user.id)}>
                       <div className="flex items-center gap-2">
                         <UserCircle className="h-4 w-4 text-muted-foreground" />
-                        <span>{user.name}</span>
-                        <span className="text-xs text-muted-foreground">({user.sectorId})</span>
+                        <span>{user.username}</span>
+                        <span className="text-xs text-muted-foreground">({user.sector})</span>
                       </div>
                     </SelectItem>
                   ))}
