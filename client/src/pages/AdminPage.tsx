@@ -123,12 +123,30 @@ export default function AdminPage() {
     }
   };
 
-  const handleDisableSector = (sectorId: string, sectorName: string) => {
-    disableSector(sectorId);
-    toast({
-      title: "Sucesso",
-      description: `Setor ${sectorName} foi desativado.`,
-    });
+  const handleDisableSector = async (sectorId: string, sectorName: string) => {
+    try {
+      const result = await disableSector(sectorName); // Use sectorName instead of sectorId since API expects name
+
+      if (result.success) {
+        toast({
+          title: "Sucesso",
+          description: `Setor ${sectorName} foi desativado.`,
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Falha ao desativar setor.",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      console.error('Erro ao desativar setor', err);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao desativar setor.",
+        variant: "destructive"
+      });
+    }
   };
 
   const activeUsers = users.filter(u => u.active !== false);

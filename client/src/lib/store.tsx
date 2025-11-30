@@ -54,7 +54,7 @@ interface AppState {
   resetUserPassword: (userId: string) => void;
   deactivateUser: (userId: string) => void;
   addSector: (name: string, code: string) => Promise<{ success: boolean; error?: string }>;
-  disableSector: (sectorId: string) => void;
+  disableSector: (sectorName: string) => Promise<{ success: boolean; error?: string }>;
   bulkDispatchDocuments: (docIds: string[], targetSectorId: string) => void;
 }
 
@@ -491,8 +491,59 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const disableSector = (sectorId: string) => {
-    setSectors(prev => prev.map(s => s.name === sectorId ? { ...s, active: false } : s));
+  const disableSector = async (sectorName: string): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
+    try {
+      const mutation = `
+        mutation DeactivateSector($name: String!) {
+          deactivateSector(name: $name) {
+            success
+          }
+        }
+      `;
+
+      const result = await graphqlFetch<{ deactivateSector: { success: boolean } }>({
+        query: mutation,
+        variables: { name: sectorName },
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro desconhecido ao desativar setor');
+      }
+
+      const response = result.data?.deactivateSector;
+      if (!response?.success) {
+        return { success: false, error: 'Falha ao desativar setor no servidor' };
+      }
+
+      // Success: remove from local store
+      setSectors(prev => prev.filter(s => s.name !== sectorName));
+
+      // Update IndexedDB cache if user is admin
+      if (currentUser.role === 'admin') {
+        try {
+          const cached = await loadSectorsFromCache();
+          if (cached && Array.isArray(cached.sectors)) {
+            const updatedSectors = cached.sectors.filter(s => s.name !== sectorName);
+            await saveSectorsToCache({
+              sectors: updatedSectors,
+              updatedAt: Date.now(),
+            });
+          }
+        } catch (err) {
+          console.error('Erro ao atualizar cache de setores', err);
+          // Don't fail the operation if cache update fails
+        }
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Erro ao desativar setor', err);
+      return { success: false, error: err.message || 'Erro ao desativar setor' };
+    }
   };
 
   const bulkDispatchDocuments = (docIds: string[], targetSectorId: string) => {
