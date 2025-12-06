@@ -46,7 +46,7 @@ interface AppState {
   loadSectors: (user: User) => Promise<void>;
   loadUsers: (user: User) => Promise<void>;
   loadDashboardDocuments: (forceRefresh?: boolean) => Promise<void>;
-  registerDocument: (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
+  registerDocument: (number: number, name: string, type: DocumentType, observations?: string) => Promise<boolean>;
   editDocument: (docId: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   dispatchDocument: (docId: string, targetSectorId: string) => Promise<boolean>;
   cancelDispatch: (docId: string) => void;
@@ -314,42 +314,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ]).catch((err) => console.error('Erro ao limpar dados do usuário no IndexedDB', err));
   };
 
-  const registerDocument = (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => {
-    if (!currentUser) return;
+  const registerDocument = async (number: number, name: string, type: DocumentType, observations?: string): Promise<boolean> => {
+    if (!currentUser) return false;
 
-    let patient = patients.find(p => p.name.toLowerCase() === patientName.toLowerCase() && p.numeroAtendimento === numeroAtendimento);
-    if (!patient) {
-      patient = {
-        id: `p${Date.now()}`,
-        name: patientName,
-        numeroAtendimento: numeroAtendimento
+    try {
+      // Map DocumentType to GraphQL enum
+      const graphqlType = type === 'Ficha' ? 'FICHA' : 'PRONTUARIO';
+
+      const mutation = `
+        mutation CreateDocument($input: NewDocumentInput!) {
+          createDocument(input: $input) {
+            id
+            number
+            name
+            type
+            observations
+            sector {
+              name
+              code
+            }
+            history {
+              action
+              user
+              sector {
+                name
+                code
+              }
+              dateTime
+              description
+            }
+          }
+        }
+      `;
+
+      const input = {
+        number,
+        name,
+        type: graphqlType,
+        observations: observations || null
       };
-      setPatients(prev => [...prev, patient!]);
+
+      const result = await graphqlFetch<{ createDocument: any }>({
+        query: mutation,
+        variables: { input }
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro ao criar documento');
+      }
+
+      // Refresh dashboard to show the new document in inventory
+      await loadDashboardDocuments(true);
+      return true;
+    } catch (err) {
+      console.error('Erro ao registrar documento', err);
+      return false;
     }
-
-    const newDoc: Document = {
-      id: `DOC-${Math.floor(Math.random() * 100000)}`,
-      title,
-      type,
-      patientId: patient.id,
-      currentSectorId: currentUser.sector.name,
-      status: 'registered',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdByUserId: currentUser.id
-    };
-
-    const newEvent: DocumentEvent = {
-      id: `e${Date.now()}`,
-      documentId: newDoc.id,
-      type: 'created',
-      timestamp: new Date().toISOString(),
-      userId: currentUser.id,
-      sectorId: currentUser.sector.name
-    };
-
-    setDocuments(prev => [...prev, newDoc]);
-    setEvents(prev => [...prev, newEvent]);
   };
 
   const editDocument = (docId: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => {
