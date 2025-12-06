@@ -224,9 +224,6 @@ export default function LoginPage() {
             <Button type="submit" className="w-full h-12 text-lg" disabled={submitting}>
               {submitting ? 'Entrando...' : 'Entrar'}
             </Button>
-            <div className="text-center text-xs text-muted-foreground mt-4">
-              Pronto para uso Offline (PWA)
-            </div>
           </form>
         </CardContent>
       </Card>

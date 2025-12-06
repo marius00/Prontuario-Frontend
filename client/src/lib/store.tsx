@@ -45,10 +45,10 @@ interface AppState {
   logout: () => void;
   loadSectors: (user: User) => Promise<void>;
   loadUsers: (user: User) => Promise<void>;
-  loadDashboardDocuments: () => Promise<void>;
+  loadDashboardDocuments: (forceRefresh?: boolean) => Promise<void>;
   registerDocument: (title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
   editDocument: (docId: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
-  dispatchDocument: (docId: string, targetSectorId: string) => void;
+  dispatchDocument: (docId: string, targetSectorId: string) => Promise<boolean>;
   cancelDispatch: (docId: string) => void;
   receiveDocument: (docId: string) => void;
   rejectDocument: (docId: string, reason: string) => void;
@@ -65,7 +65,7 @@ interface AppState {
   deactivateUser: (username: string) => Promise<{ success: boolean; error?: string }>;
   addSector: (name: string, code: string) => Promise<{ success: boolean; error?: string }>;
   disableSector: (sectorName: string) => Promise<{ success: boolean; error?: string }>;
-  bulkDispatchDocuments: (docIds: string[], targetSectorId: string) => void;
+  bulkDispatchDocuments: (docIds: string[], targetSectorId: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -371,30 +371,53 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ));
   };
 
-  const dispatchDocument = (docId: string, targetSectorId: string) => {
-    if (!currentUser) return;
+  async function sendDocumentsViaGraphQL(docIds: string[], targetSectorId: string, currentUser: User | null) {
+    if (!currentUser || docIds.length === 0) return false;
+    const mutation = `mutation SendDocument($documents: [Int!]!, $sector: String!) { sendDocument(documents: $documents, sector: $sector) { success } }`;
+    const intIds = docIds.map(id => parseInt(id));
+    const variables = { documents: intIds, sector: targetSectorId };
+    try {
+      const result = await graphqlFetch<{ sendDocument: { success: boolean } }>({ query: mutation, variables });
+      return result.data?.sendDocument.success === true;
+    } catch (err) {
+      console.error('Erro ao enviar documentos via GraphQL', err);
+      return false;
+    }
+  }
 
-    const newEvent: DocumentEvent = {
-      id: `e${Date.now()}`,
-      documentId: docId,
-      type: 'dispatched',
-      timestamp: new Date().toISOString(),
-      userId: currentUser.id,
-      sectorId: currentUser.sector.name,
-      metadata: { toSectorId: targetSectorId }
-    };
-
-    setDocuments(prev => prev.map(d => 
-      d.id === docId ? { 
-        ...d, 
-        currentSectorId: targetSectorId, 
-        status: 'in-transit',
-        updatedAt: new Date().toISOString(),
-        lastDispatchedBySectorId: currentUser.sector.name
-      } : d
-    ));
-
-    setEvents(prev => [...prev, newEvent]);
+  const dispatchDocument = async (docId: string, targetSectorId: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    const success = await sendDocumentsViaGraphQL([docId], targetSectorId, currentUser);
+    if (success) {
+      const newEvent: DocumentEvent = {
+        id: `e${Date.now()}`,
+        documentId: docId,
+        type: 'dispatched',
+        timestamp: new Date().toISOString(),
+        userId: currentUser.id,
+        sectorId: currentUser.sector.name,
+        metadata: { toSectorId: targetSectorId }
+      };
+      setDocuments(prev => prev.map(d =>
+        d.id === docId ? {
+          ...d,
+          currentSectorId: targetSectorId,
+          status: 'in-transit',
+          updatedAt: new Date().toISOString(),
+          lastDispatchedBySectorId: currentUser.sector.name
+        } : d
+      ));
+      setEvents(prev => [...prev, newEvent]);
+      try {
+        await loadDashboardDocuments();
+      } catch (err) {
+        console.error('Erro ao atualizar cache do dashboard', err);
+      }
+      return true;
+    } else {
+      console.error('Falha ao enviar documento via GraphQL');
+      return false;
+    }
   };
 
   const cancelDispatch = (docId: string) => {
@@ -834,36 +857,67 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const bulkDispatchDocuments = (docIds: string[], targetSectorId: string) => {
-    if (!currentUser) return;
-
-    docIds.forEach(docId => {
-      dispatchDocument(docId, targetSectorId);
-    });
+  const bulkDispatchDocuments = async (docIds: string[], targetSectorId: string): Promise<boolean> => {
+    if (!currentUser || docIds.length === 0) return false;
+    const success = await sendDocumentsViaGraphQL(docIds, targetSectorId, currentUser);
+    if (success) {
+      docIds.forEach(docId => {
+        const newEvent: DocumentEvent = {
+          id: `e${Date.now()}`,
+          documentId: docId,
+          type: 'dispatched',
+          timestamp: new Date().toISOString(),
+          userId: currentUser.id,
+          sectorId: currentUser.sector.name,
+          metadata: { toSectorId: targetSectorId }
+        };
+        setDocuments(prev => prev.map(d =>
+          d.id === docId ? {
+            ...d,
+            currentSectorId: targetSectorId,
+            status: 'in-transit',
+            updatedAt: new Date().toISOString(),
+            lastDispatchedBySectorId: currentUser.sector.name
+          } : d
+        ));
+        setEvents(prev => [...prev, newEvent]);
+      });
+      try {
+        await loadDashboardDocuments();
+      } catch (err) {
+        console.error('Erro ao atualizar cache do dashboard', err);
+      }
+      return true;
+    } else {
+      console.error('Falha ao enviar documentos via GraphQL');
+      return false;
+    }
   };
 
-  const loadDashboardDocuments = async () => {
+  const loadDashboardDocuments = async (forceRefresh = false) => {
     if (!currentUser) return;
 
     try {
-      // First try to load from cache
-      const cached = await loadDashboardDocsFromCache();
-      const FIVE_MINUTES_MS = 5 * 60 * 1000; // Cache for 5 minutes
-      const now = Date.now();
+      // First try to load from cache, unless forceRefresh is true
+      if (!forceRefresh) {
+        const cached = await loadDashboardDocsFromCache();
+        const FIVE_MINUTES_MS = 5 * 60 * 1000; // Cache for 5 minutes
+        const now = Date.now();
 
-      if (cached && cached.inventory && cached.inbox && cached.outbox) {
-        const isStale = now - cached.updatedAt > FIVE_MINUTES_MS;
+        if (cached && cached.inventory && cached.inbox && cached.outbox) {
+          const isStale = now - cached.updatedAt > FIVE_MINUTES_MS;
 
-        // Set cached data immediately
-        setDashboardDocuments({
-          inventory: cached.inventory,
-          inbox: cached.inbox,
-          outbox: cached.outbox
-        });
+          // Set cached data immediately
+          setDashboardDocuments({
+            inventory: cached.inventory,
+            inbox: cached.inbox,
+            outbox: cached.outbox
+          });
 
-        // If not stale, return early
-        if (!isStale) {
-          return;
+          // If not stale, return early
+          if (!isStale) {
+            return;
+          }
         }
       }
 
@@ -948,11 +1002,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const dashboardData = result.data?.listDocumentsForDashboard;
       if (dashboardData) {
-        console.log('Got dashboard documents from API:', dashboardData);
         setDashboardDocuments(dashboardData);
-
         // Persist in cache with timestamp
-        console.log('Saving dashboard documents to cache...');
         await saveDashboardDocsToCache({
           inventory: dashboardData.inventory,
           inbox: dashboardData.inbox,
@@ -995,7 +1046,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         logout,
         loadSectors: refreshSectorsFromApi,
         loadUsers: refreshUsersFromApi,
-        loadDashboardDocuments,
+        loadDashboardDocuments: async (forceRefresh = false) => {
+          return await loadDashboardDocuments(forceRefresh);
+        },
         registerDocument,
         editDocument,
         dispatchDocument,

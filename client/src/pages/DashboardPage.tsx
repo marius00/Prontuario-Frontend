@@ -82,15 +82,24 @@ export default function DashboardPage() {
   const filteredIncoming = filterDocs(incomingDocs);
   const filteredOutgoing = filterDocs(outgoingDocs);
 
-  const handleDispatch = () => {
+  const handleDispatch = async () => {
     if (dispatchDocId && targetSectorId) {
-      dispatchDocument(dispatchDocId, targetSectorId);
-      toast({
-        title: "Documento Enviado",
-        description: "O documento está agora em trânsito.",
-      });
-      setDispatchDocId(null);
-      setTargetSectorId('');
+      const success = await dispatchDocument(dispatchDocId, targetSectorId);
+      await loadDashboardDocuments(true); // force refresh from backend
+      if (success) {
+        toast({
+          title: "Documento Enviado",
+          description: "O documento está agora em trânsito.",
+        });
+        setDispatchDocId(null);
+        setTargetSectorId('');
+      } else {
+        toast({
+          title: "Erro ao enviar documento",
+          description: "Ocorreu um erro ao enviar o documento. Tente novamente.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -174,17 +183,26 @@ export default function DashboardPage() {
     setSelectedDocs(newSelected);
   };
 
-  const handleBulkSend = () => {
+  const handleBulkSend = async () => {
     if (selectedDocs.size > 0 && bulkTargetSectorId) {
-      bulkDispatchDocuments(Array.from(selectedDocs), bulkTargetSectorId);
-      toast({
-        title: "Sucesso",
-        description: `${selectedDocs.size} documento(s) enviado(s) para o setor.`,
-      });
-      setSelectedDocs(new Set());
-      setSelectMode(false);
-      setShowBulkSendDialog(false);
-      setBulkTargetSectorId('');
+      const success = await bulkDispatchDocuments(Array.from(selectedDocs), bulkTargetSectorId);
+      await loadDashboardDocuments(true); // force refresh from backend
+      if (success) {
+        toast({
+          title: "Sucesso",
+          description: `${selectedDocs.size} documento(s) enviado(s) para o setor.`,
+        });
+        setSelectedDocs(new Set());
+        setSelectMode(false);
+        setShowBulkSendDialog(false);
+        setBulkTargetSectorId('');
+      } else {
+        toast({
+          title: "Erro ao enviar documentos",
+          description: "Ocorreu um erro ao enviar os documentos. Tente novamente.",
+          variant: "destructive"
+        });
+      }
     }
   };
 

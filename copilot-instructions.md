@@ -1,0 +1,3 @@
+Do not introduce new any warnings or errors in the code.
+Make sure the input arguments to functions matches the expected types and number of arguments
+Follow best practises, keep graphql calls in a single file. Re-use where it makes sense, refactor if needed.
