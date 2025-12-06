@@ -13,6 +13,7 @@ const USER_KEY = 'currentUser';
 const SECTORS_KEY = 'sectors';
 const USERS_KEY = 'users';
 const DASHBOARD_DOCS_KEY = 'dashboardDocs';
+const ALL_DOCUMENTS_KEY = 'allDocuments';
 
 interface StoredSectorsPayload {
   sectors: { name: string; code: string; active?: boolean }[];
@@ -28,6 +29,11 @@ interface StoredDashboardDocsPayload {
   inventory: any[];
   inbox: any[];
   outbox: any[];
+  updatedAt: number; // epoch ms
+}
+
+interface StoredAllDocumentsPayload {
+  documents: any[];
   updatedAt: number; // epoch ms
 }
 
@@ -378,5 +384,79 @@ export async function clearDashboardDocsCache(): Promise<void> {
 
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ---- All documents cache helpers ----
+
+async function openAllDocsDb(): Promise<IDBDatabase> {
+  return openDb(DB_NAME, DB_VERSION, (db) => {
+    if (!db.objectStoreNames.contains(USER_STORE_NAME)) {
+      db.createObjectStore(USER_STORE_NAME);
+    }
+  });
+}
+
+export async function saveAllDocumentsToCache(payload: StoredAllDocumentsPayload): Promise<void> {
+  const db = await openAllDocsDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(USER_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(USER_STORE_NAME);
+    store.put(payload, ALL_DOCUMENTS_KEY);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function loadAllDocumentsFromCache(): Promise<StoredAllDocumentsPayload | undefined> {
+  const db = await openAllDocsDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(USER_STORE_NAME, 'readonly');
+    const store = tx.objectStore(USER_STORE_NAME);
+    const req = store.get(ALL_DOCUMENTS_KEY);
+
+    req.onsuccess = () => resolve(req.result as StoredAllDocumentsPayload | undefined);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function clearAllDocumentsCache(): Promise<void> {
+  const db = await openAllDocsDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(USER_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(USER_STORE_NAME);
+    store.delete(ALL_DOCUMENTS_KEY);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// Helper function to update a single document in the all documents cache
+export async function updateDocumentInAllDocsCache(updatedDocument: any): Promise<void> {
+  const cached = await loadAllDocumentsFromCache();
+  if (!cached) return;
+
+  const updatedDocuments = cached.documents.map(doc =>
+    doc.id === updatedDocument.id ? updatedDocument : doc
+  );
+
+  await saveAllDocumentsToCache({
+    documents: updatedDocuments,
+    updatedAt: Date.now()
+  });
+}
+
+// Helper function to add a new document to the all documents cache
+export async function addDocumentToAllDocsCache(newDocument: any): Promise<void> {
+  const cached = await loadAllDocumentsFromCache();
+  if (!cached) return;
+
+  const updatedDocuments = [...cached.documents, newDocument];
+
+  await saveAllDocumentsToCache({
+    documents: updatedDocuments,
+    updatedAt: Date.now()
   });
 }

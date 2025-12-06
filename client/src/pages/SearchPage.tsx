@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search as SearchIcon, FileText, User, Send } from 'lucide-react';
+import { Search as SearchIcon, User, Send } from 'lucide-react';
 import { DocumentCard } from '@/components/DocumentCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -13,7 +13,7 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SearchPage() {
-  const { documents, patients, currentUser, getDocumentHistory, sectors, events, requestDocument, users } = useApp();
+  const { allDocuments, loadAllDocuments, currentUser, sectors, requestDocument, users } = useApp();
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState<'doc' | 'patient'>('doc');
@@ -21,18 +21,25 @@ export default function SearchPage() {
   const [requestReason, setRequestReason] = useState('');
   const [historyDocId, setHistoryDocId] = useState<string | null>(null);
 
-  const filteredDocs = documents.filter(d => 
-    d.id.toLowerCase().includes(query.toLowerCase()) || 
-    (d.title && d.title.toLowerCase().includes(query.toLowerCase()))
+  // Load all documents on component mount
+  useEffect(() => {
+    if (currentUser) {
+      loadAllDocuments();
+    }
+  }, [currentUser, loadAllDocuments]);
+
+  const filteredDocs = (allDocuments || []).filter(d =>
+    d.id.toString().toLowerCase().includes(query.toLowerCase()) ||
+    d.number.toString().includes(query.toLowerCase()) ||
+    (d.name && d.name.toLowerCase().includes(query.toLowerCase())) ||
+    (d.observations && d.observations.toLowerCase().includes(query.toLowerCase()))
   );
 
-  const filteredPatients = patients.filter(p => 
-    p.name.toLowerCase().includes(query.toLowerCase()) ||
-    p.numeroAtendimento.includes(query)
-  );
+  // For now, disable patient search since we don't have patient data from GraphQL
+  const filteredPatients: any[] = [];
 
-  const getSectorName = (sectorId: string) => {
-    return sectors.find(s => s.id === sectorId)?.name || sectorId;
+  const getSectorName = (sectorNameOrId: string) => {
+    return sectors.find(s => s.name === sectorNameOrId || s.name === sectorNameOrId)?.name || sectorNameOrId;
   };
 
   const handleRequestDocument = () => {
@@ -78,61 +85,43 @@ export default function SearchPage() {
           {query && filteredDocs.length === 0 && (
              <div className="text-center py-8 text-muted-foreground">Nenhum documento encontrado.</div>
           )}
-          {filteredDocs.map(doc => (
-            <div key={doc.id} className="relative">
-              <DocumentCard 
-                doc={doc} 
-                patientName={patients.find(p => p.id === doc.patientId)?.name}
-                patientAtendimento={patients.find(p => p.id === doc.patientId)?.numeroAtendimento}
-                showMenu
-                sectors={sectors}
-                events={events}
-                users={users}
-                onViewHistory={setHistoryDocId}
-                onRequest={setRequestDocId}
-              />
-            </div>
-          ))}
-        </TabsContent>
+          {filteredDocs.map(doc => {
+            // Adapt GraphQL document to DocumentCard format
+            const adaptedDoc = {
+              id: doc.id.toString(),
+              title: doc.name,
+              type: doc.type === 'FICHA' ? 'Ficha' : 'Prontuario',
+              patientId: `patient-${doc.id}`, // Synthetic patient ID
+              currentSectorId: doc.sector?.name || 'Unknown',
+              status: 'registered' as const,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              createdByUserId: 'unknown'
+            };
 
-        <TabsContent value="patient" className="space-y-4 mt-4">
-          {query && filteredPatients.length === 0 && (
-             <div className="text-center py-8 text-muted-foreground">Nenhum paciente encontrado.</div>
-          )}
-          {filteredPatients.map(patient => {
-            const patientDocs = documents.filter(d => d.patientId === patient.id);
             return (
-              <div key={patient.id} className="border rounded-lg p-4 bg-card space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-lg">{patient.name}</h3>
-                    <p className="text-sm text-muted-foreground font-mono">Atendimento: {patient.numeroAtendimento}</p>
-                  </div>
-                  <User className="h-8 w-8 text-muted-foreground/30" />
-                </div>
-                
-                {patientDocs.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t">
-                    <div className="text-xs font-medium text-muted-foreground">Documentos Associados:</div>
-                    {patientDocs.map(doc => (
-                      <div key={doc.id} className="flex flex-col p-3 bg-muted/50 rounded border gap-1">
-                        <div className="flex justify-between items-start">
-                          <span className="font-semibold text-sm">{doc.title || 'Sem título'}</span>
-                          <span className="text-xs font-mono bg-background px-1.5 py-0.5 rounded border text-primary font-bold">
-                            {getSectorName(doc.currentSectorId)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                          <span className="font-mono">{patient.numeroAtendimento}</span>
-                          <span>Atualizado: {format(new Date(doc.updatedAt), 'dd/MM HH:mm')}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div key={doc.id} className="relative">
+                <DocumentCard
+                  doc={adaptedDoc.id}
+                  patientName={`Doc #${doc.number}`}
+                  patientAtendimento={doc.observations || 'Sem observações'}
+                  showMenu
+                  sectors={sectors}
+                  users={users}
+                  onViewHistory={setHistoryDocId}
+                  onRequest={setRequestDocId}
+                />
               </div>
             );
           })}
+        </TabsContent>
+
+        <TabsContent value="patient" className="space-y-4 mt-4">
+          <div className="text-center py-12 text-muted-foreground">
+            <User className="h-12 w-12 mx-auto mb-4 opacity-20" />
+            <h3 className="text-lg font-medium mb-2">Busca por Pacientes</h3>
+            <p className="text-sm">Esta funcionalidade estará disponível em breve.</p>
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -143,23 +132,29 @@ export default function SearchPage() {
             <DialogTitle>Histórico do Documento</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-4">
-            {historyDocId && getDocumentHistory(historyDocId).map(event => (
-              <div key={event.id} className="p-3 bg-muted rounded border">
-                <div className="flex justify-between items-start mb-1">
-                  <span className="text-sm font-semibold capitalize">{event.type}</span>
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {format(new Date(event.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
-                  </span>
+            {historyDocId && (() => {
+              const doc = allDocuments?.find(d => d.id.toString() === historyDocId);
+              const history = doc?.history || [];
+
+              return history.length > 0 ? history.map((event: any, index: number) => (
+                <div key={index} className="p-3 bg-muted rounded border">
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-sm font-semibold capitalize">{event.action}</span>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      {format(new Date(event.dateTime), 'dd/MM HH:mm', { locale: ptBR })}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Usuário: {event.user} - Setor: {event.sector?.name || 'Unknown'}
+                  </p>
+                  {event.description && (
+                    <p className="text-xs text-muted-foreground mt-2 italic">{event.description}</p>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">{getSectorName(event.sectorId)}</p>
-                {event.metadata?.reason && (
-                  <p className="text-xs text-muted-foreground mt-2 italic">{event.metadata.reason}</p>
-                )}
-              </div>
-            ))}
-            {historyDocId && getDocumentHistory(historyDocId).length === 0 && (
-              <p className="text-center text-sm text-muted-foreground">Nenhum evento registrado.</p>
-            )}
+              )) : (
+                <p className="text-center text-sm text-muted-foreground">Nenhum evento registrado.</p>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setHistoryDocId(null)}>Fechar</Button>
@@ -180,7 +175,7 @@ export default function SearchPage() {
             <div className="space-y-2">
               <Label>Seu Setor</Label>
               <div className="h-10 px-3 py-2 border rounded-md bg-muted flex items-center text-sm font-medium">
-                {currentUser ? getSectorName(currentUser.sector) : 'N/A'}
+                {currentUser ? currentUser.sector.name : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">

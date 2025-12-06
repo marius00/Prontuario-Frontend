@@ -13,9 +13,26 @@ import {
   clearUsersCache,
   loadDashboardDocsFromCache,
   saveDashboardDocsToCache,
-  clearDashboardDocsCache
+  clearDashboardDocsCache,
+  loadAllDocumentsFromCache,
+  saveAllDocumentsToCache,
+  clearAllDocumentsCache,
+  updateDocumentInAllDocsCache,
+  addDocumentToAllDocsCache
 } from '@/lib/indexedDb';
 import { graphqlFetch } from '@/lib/graphqlClient';
+
+// Helper function to handle GraphQL errors consistently
+const handleGraphQLError = (result: any, defaultMessage: string): string => {
+  if (result.errors && result.errors.length > 0) {
+    const firstError = result.errors[0];
+    // Check if it's a validation error with a specific message
+    if (firstError.extensions?.classification === 'VALIDATION' && firstError.message) {
+      return firstError.message;
+    }
+  }
+  return defaultMessage;
+};
 
 // Mock Data
 // Sectors are now loaded from the backend; keep only patients/docs/events mocked locally
@@ -38,6 +55,7 @@ interface AppState {
   sectors: Sector[];
   documents: Document[];
   dashboardDocuments: DashboardDocuments | null; // New dashboard documents from GraphQL
+  allDocuments: any[] | null; // All documents from GraphQL for search
   patients: Patient[];
   events: DocumentEvent[];
   users: User[]; // For now this can represent only the currently logged in user in an array
@@ -46,6 +64,7 @@ interface AppState {
   loadSectors: (user: User) => Promise<void>;
   loadUsers: (user: User) => Promise<void>;
   loadDashboardDocuments: (forceRefresh?: boolean) => Promise<void>;
+  loadAllDocuments: (forceRefresh?: boolean) => Promise<void>;
   registerDocument: (number: number, name: string, type: DocumentType, observations?: string) => Promise<boolean>;
   editDocument: (id: number, number: number, name: string, type: DocumentType, observations?: string) => Promise<boolean>;
   dispatchDocument: (docId: string, targetSectorId: string) => Promise<boolean>;
@@ -82,6 +101,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [events, setEvents] = useState<DocumentEvent[]>(MOCK_EVENTS);
   const [dashboardDocuments, setDashboardDocuments] = useState<DashboardDocuments | null>(null);
+  const [allDocuments, setAllDocuments] = useState<any[] | null>(null);
 
   useEffect(() => {
     const loadUserAndSectorsFromDb = async () => {
@@ -311,6 +331,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearSectorsCache(),
       clearUsersCache(),
       clearDashboardDocsCache(),
+      clearAllDocumentsCache(),
     ]).catch((err) => console.error('Erro ao limpar dados do usuário no IndexedDB', err));
   };
 
@@ -365,6 +386,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       // Refresh dashboard to show the new document in inventory
       await loadDashboardDocuments(true);
+
+      // Also add to allDocuments cache if it exists
+      if (result.data?.createDocument) {
+        try {
+          await addDocumentToAllDocsCache(result.data.createDocument);
+        } catch (err) {
+          console.error('Erro ao atualizar cache de todos os documentos', err);
+        }
+      }
+
       return true;
     } catch (err) {
       console.error('Erro ao registrar documento', err);
@@ -424,6 +455,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       // Refresh dashboard to show the updated document
       await loadDashboardDocuments(true);
+
+      // Also update allDocuments cache if it exists
+      if (result.data?.editDocument) {
+        try {
+          await updateDocumentInAllDocsCache(result.data.editDocument);
+        } catch (err) {
+          console.error('Erro ao atualizar cache de todos os documentos', err);
+        }
+      }
+
       return true;
     } catch (err) {
       console.error('Erro ao editar documento', err);
@@ -1091,6 +1132,89 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loadAllDocuments = async (forceRefresh = false) => {
+    if (!currentUser) return;
+
+    try {
+      // First try to load from cache, unless forceRefresh is true
+      if (!forceRefresh) {
+        const cached = await loadAllDocumentsFromCache();
+        const TEN_MINUTES_MS = 10 * 60 * 1000; // Cache for 10 minutes
+        const now = Date.now();
+
+        if (cached && cached.documents) {
+          const isStale = now - cached.updatedAt > TEN_MINUTES_MS;
+
+          // Set cached data immediately
+          setAllDocuments(cached.documents);
+
+          // If not stale, return early
+          if (!isStale) {
+            return;
+          }
+        }
+      }
+
+      // Load from GraphQL API
+      const query = `
+        query ListAllDocuments {
+          listAllDocuments {
+            id
+            number
+            name
+            type
+            observations
+            sector {
+              name
+              code
+            }
+            history {
+              action
+              user
+              sector {
+                name
+                code
+              }
+              dateTime
+              description
+            }
+          }
+        }
+      `;
+
+      const result = await graphqlFetch<{ listAllDocuments: any[] }>({
+        query,
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro ao carregar todos os documentos');
+      }
+
+      const allDocsData = result.data?.listAllDocuments;
+      if (allDocsData) {
+        setAllDocuments(allDocsData);
+        // Persist in cache with timestamp
+        await saveAllDocumentsToCache({
+          documents: allDocsData,
+          updatedAt: Date.now(),
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao carregar todos os documentos', err);
+      // Fallback to cache if available and not already loaded
+      if (!allDocuments) {
+        try {
+          const cached = await loadAllDocumentsFromCache();
+          if (cached && cached.documents) {
+            setAllDocuments(cached.documents);
+          }
+        } catch (cacheErr) {
+          console.error('Erro ao carregar documentos do cache', cacheErr);
+        }
+      }
+    }
+  };
+
   const acceptDocument = async (docId: string): Promise<boolean> => {
     if (!currentUser) return false;
     try {
@@ -1100,6 +1224,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (result.errors) throw new Error(result.errors[0]?.message || 'Erro ao aceitar documento');
       // Remove from inbox, add to inventory
       await loadDashboardDocuments(true);
+
+      // Also update allDocuments cache
+      if (result.data?.acceptDocument) {
+        try {
+          await updateDocumentInAllDocsCache(result.data.acceptDocument);
+        } catch (err) {
+          console.error('Erro ao atualizar cache de todos os documentos', err);
+        }
+      }
+
       return true;
     } catch (err) {
       console.error('Erro ao aceitar documento', err);
@@ -1116,6 +1250,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (result.errors) throw new Error(result.errors[0]?.message || 'Erro ao rejeitar documento');
       // Remove from inbox
       await loadDashboardDocuments(true);
+
+      // Also refresh allDocuments cache since document status changed
+      try {
+        await loadAllDocuments(true);
+      } catch (err) {
+        console.error('Erro ao atualizar cache de todos os documentos', err);
+      }
+
       return true;
     } catch (err) {
       console.error('Erro ao rejeitar documento', err);
@@ -1132,6 +1274,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (result.errors) throw new Error(result.errors[0]?.message || 'Erro ao cancelar documento');
       // Refresh dashboard to update document status
       await loadDashboardDocuments(true);
+
+      // Also update allDocuments cache
+      if (result.data?.cancelDocument) {
+        try {
+          await updateDocumentInAllDocsCache(result.data.cancelDocument);
+        } catch (err) {
+          console.error('Erro ao atualizar cache de todos os documentos', err);
+        }
+      }
+
       return true;
     } catch (err) {
       console.error('Erro ao cancelar documento', err);
@@ -1147,6 +1299,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sectors,
         documents,
         dashboardDocuments,
+        allDocuments,
         patients,
         events,
         users,
@@ -1156,6 +1309,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loadUsers: refreshUsersFromApi,
         loadDashboardDocuments: async (forceRefresh = false) => {
           return await loadDashboardDocuments(forceRefresh);
+        },
+        loadAllDocuments: async (forceRefresh = false) => {
+          return await loadAllDocuments(forceRefresh);
         },
         registerDocument,
         editDocument,
