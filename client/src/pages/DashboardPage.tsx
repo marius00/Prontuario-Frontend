@@ -10,9 +10,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Search, Inbox, Send, Truck, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {DocumentStatus} from "@/lib/types.ts";
 
 export default function DashboardPage() {
-  const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users } = useApp();
+  const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users, acceptDocument, rejectDocumentInbox } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
   const [selectMode, setSelectMode] = useState(false);
@@ -35,6 +36,10 @@ export default function DashboardPage() {
   const [rejectDocId, setRejectDocId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   
+  // Inbox Reject Dialog State
+  const [rejectInboxDocId, setRejectInboxDocId] = useState<string | null>(null);
+  const [rejectInboxReason, setRejectInboxReason] = useState('');
+
   // Undo Dialog State
   const [undoDocId, setUndoDocId] = useState<string | null>(null);
   const [undoReason, setUndoReason] = useState('');
@@ -50,7 +55,7 @@ export default function DashboardPage() {
     type: dashDoc.type,
     patientId: `patient-${dashDoc.id}`, // We'll use a synthetic ID
     currentSectorId: dashDoc.sector?.name || (currentUser?.sector.name || 'Unknown'),
-    status: 'registered' as const,
+    status: 'registered' as DocumentStatus,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     createdByUserId: currentUser?.id || 'unknown',
@@ -206,6 +211,44 @@ export default function DashboardPage() {
     }
   };
 
+  const handleAcceptDocument = async (id: string) => {
+    const success = await acceptDocument(id);
+    if (success) {
+      toast({
+        title: "Documento Aceito",
+        description: "O documento foi aceito e movido para o inventário.",
+        className: "bg-green-600 text-white border-none"
+      });
+    } else {
+      toast({
+        title: "Erro ao aceitar documento",
+        description: "Não foi possível aceitar o documento. Tente novamente.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRejectInbox = async () => {
+    if (rejectInboxDocId) {
+      const success = await rejectDocumentInbox(rejectInboxDocId, rejectInboxReason || undefined);
+      if (success) {
+        toast({
+          title: "Documento Rejeitado",
+          description: rejectInboxReason ? `Documento rejeitado: ${rejectInboxReason}` : "Documento rejeitado.",
+          variant: "destructive"
+        });
+        setRejectInboxDocId(null);
+        setRejectInboxReason('');
+      } else {
+        toast({
+          title: "Erro ao rejeitar documento",
+          description: "Não foi possível rejeitar o documento. Tente novamente.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -303,6 +346,8 @@ export default function DashboardPage() {
           ) : (
             filteredIncoming.map(dashDoc => {
               const adaptedDoc = adaptDashboardDocToDocument(dashDoc);
+              // Set status to in-transit for inbox documents to show correct actions
+              adaptedDoc.status = 'in-transit';
               return (
                 <DocumentCard
                   key={adaptedDoc.id}
@@ -310,12 +355,12 @@ export default function DashboardPage() {
                   patientName={`Doc #${dashDoc.number}`}
                   patientAtendimento={dashDoc.observations || 'Sem observações'}
                   showActions
+                  showInboxActions
                   sectors={sectors}
                   events={events}
                   users={users}
-                  onReceive={handleReceive}
-                  onReject={setRejectDocId}
-                  onUndo={setUndoDocId}
+                  onAccept={handleAcceptDocument}
+                  onRejectInbox={setRejectInboxDocId}
                 />
               );
             })
@@ -531,6 +576,34 @@ export default function DashboardPage() {
             <Button variant="outline" onClick={() => setUndoDocId(null)}>Cancelar</Button>
             <Button onClick={handleUndo} variant="destructive" disabled={!undoReason}>
               Confirmar Desfazer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Inbox Reject Dialog */}
+      <Dialog open={!!rejectInboxDocId} onOpenChange={(open) => !open && setRejectInboxDocId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rejeitar Documento da Entrada</DialogTitle>
+            <DialogDescription>
+              Adicione uma descrição opcional para justificar a rejeição. O documento será removido da sua entrada.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Descrição (Opcional)</Label>
+              <Textarea
+                placeholder="ex: Não recebi..."
+                value={rejectInboxReason}
+                onChange={(e) => setRejectInboxReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectInboxDocId(null)}>Cancelar</Button>
+            <Button onClick={handleRejectInbox} variant="destructive">
+              Rejeitar Documento
             </Button>
           </DialogFooter>
         </DialogContent>

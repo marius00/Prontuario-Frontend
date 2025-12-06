@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Sector, Document, Patient, DocumentEvent, DocumentType, DashboardDocuments, DashboardDocument } from './types';
+import { User, Sector, Document, Patient, DocumentEvent, DocumentType, DashboardDocuments } from './types';
 import {
   getUserProfile,
   clearUserProfile,
@@ -66,6 +66,8 @@ interface AppState {
   addSector: (name: string, code: string) => Promise<{ success: boolean; error?: string }>;
   disableSector: (sectorName: string) => Promise<{ success: boolean; error?: string }>;
   bulkDispatchDocuments: (docIds: string[], targetSectorId: string) => Promise<boolean>;
+  acceptDocument: (docId: string) => Promise<boolean>;
+  rejectDocumentInbox: (docId: string, reason?: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -1031,6 +1033,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const acceptDocument = async (docId: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    try {
+      const mutation = `mutation AcceptDocument($id: Int!) { acceptDocument(id: $id) { id number name type observations sector { name code } history { action user sector { name code } dateTime description } } }`;
+      const variables = { id: parseInt(docId) };
+      const result = await graphqlFetch<{ acceptDocument: any }>({ query: mutation, variables });
+      if (result.errors) throw new Error(result.errors[0]?.message || 'Erro ao aceitar documento');
+      // Remove from inbox, add to inventory
+      await loadDashboardDocuments(true);
+      return true;
+    } catch (err) {
+      console.error('Erro ao aceitar documento', err);
+      return false;
+    }
+  };
+
+  const rejectDocumentInbox = async (docId: string, reason?: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    try {
+      const mutation = `mutation RejectDocument($id: Int!, $description: String) { rejectDocument(id: $id, description: $description) { id } }`;
+      const variables = { id: parseInt(docId), description: reason || null };
+      const result = await graphqlFetch<{ rejectDocument: any }>({ query: mutation, variables });
+      if (result.errors) throw new Error(result.errors[0]?.message || 'Erro ao rejeitar documento');
+      // Remove from inbox
+      await loadDashboardDocuments(true);
+      return true;
+    } catch (err) {
+      console.error('Erro ao rejeitar documento', err);
+      return false;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -1069,6 +1103,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addSector,
         disableSector,
         bulkDispatchDocuments,
+        acceptDocument,
+        rejectDocumentInbox,
       }}
     >
       {children}

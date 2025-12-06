@@ -3,7 +3,7 @@ import { Document, DocumentEvent, Sector, User } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MapPin, Clock, Truck, CheckCircle, AlertCircle, Undo2, FileText, XCircle, Edit, Menu } from 'lucide-react';
+import { Truck, CheckCircle, AlertCircle, Undo2, XCircle, Edit, Menu } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -31,9 +31,12 @@ interface DocumentCardProps {
   onRequest?: (id: string) => void;
   onUndo?: (id: string) => void;
   onCancelDispatch?: (id: string) => void;
+  showInboxActions?: boolean;
+  onAccept?: (id: string) => void;
+  onRejectInbox?: (id: string) => void;
 }
 
-export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], users = [], selectMode, isSelected, onSelect, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch }: DocumentCardProps) {
+export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], users = [], selectMode, isSelected, onSelect, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch, showInboxActions, onAccept, onRejectInbox }: DocumentCardProps) {
   const getSectorName = (sectorId: string) => {
     return sectors.find(s => s.name === sectorId)?.name || sectorId;
   };
@@ -54,14 +57,7 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
     return getDocumentEvents().find(e => e.type === 'dispatched');
   };
 
-  const getReceivedByUser = () => {
-    const receivedEvent = getDocumentEvents().find(e => e.type === 'received');
-    if (receivedEvent) {
-      return getUserName(receivedEvent.userId);
-    }
-    // If no received event, show who created it
-    return getUserName(doc.createdByUserId);
-  };
+
 
   const getReceivedInfo = () => {
     const receivedEvent = getReceivedEvent();
@@ -96,7 +92,7 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
 
   const statusBadges = {
     'registered': <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Registrado</Badge>,
-    'in-transit': <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 animate-pulse">Em Trânsito</Badge>,
+    'in-transit': <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 animate-pulse">Á receber</Badge>,
     'received': <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Recebido</Badge>,
     'archived': <Badge variant="secondary">Arquivado</Badge>,
   };
@@ -230,6 +226,24 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
                  Desfazer Recebimento
                </Button>
              )}
+             {showInboxActions && doc.status === 'in-transit' && (
+              <div className="flex flex-col gap-2 w-full">
+                {onAccept && (
+                  <Button onClick={() => onAccept(doc.id)} className="w-full bg-green-600 hover:bg-green-700" size="sm">
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Aceitar
+                  </Button>
+                )}
+                {onRejectInbox && (
+                  <button
+                    onClick={() => onRejectInbox(doc.id)}
+                    className="text-xs text-destructive hover:text-destructive/80 underline text-center py-1"
+                  >
+                    Rejeitar documento
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
