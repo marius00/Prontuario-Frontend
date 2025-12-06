@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, UserCircle, HeartPulse } from 'lucide-react';
+import { UserCircle, HeartPulse } from 'lucide-react';
 import { saveAuthToken, saveUserProfile, StoredUserProfile } from '@/lib/indexedDb';
 import { graphqlFetch } from '@/lib/graphqlClient';
 import {User} from "@/lib/types.ts";
