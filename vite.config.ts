@@ -6,6 +6,7 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { metaImagesPlugin } from "./vite-plugin-meta-images";
 
 export default defineConfig({
+  base: "./", // Use relative paths for assets instead of absolute paths
   plugins: [
     react(),
     runtimeErrorOverlay(),

@@ -335,29 +335,44 @@ export default function DashboardPage() {
         
         <TabsContent value="inventory" className="space-y-3">
           {filteredMyDocs.length > 1 && (
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => {
-                  setSelectMode(!selectMode);
-                  setSelectedDocs(new Set());
-                }}
-                variant={selectMode ? "default" : "outline"}
-                size="sm"
-                className="flex-1"
-                data-testid="button-toggle-select-mode"
-              >
-                {selectMode ? 'Cancelar Seleção' : 'Selecionar Múltiplos'}
-              </Button>
-              {selectMode && selectedDocs.size > 0 && (
-                <Button 
-                  onClick={() => setShowBulkSendDialog(true)}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setSelectMode(!selectMode);
+                    setSelectedDocs(new Set());
+                  }}
+                  variant={selectMode ? "default" : "outline"}
                   size="sm"
-                  data-testid="button-bulk-send"
+                  className="flex-1"
+                  data-testid="button-toggle-select-mode"
                 >
-                  <Send className="mr-2 h-4 w-4" />
-                  Enviar ({selectedDocs.size})
+                  {selectMode ? 'Cancelar Seleção' : 'Selecionar Múltiplos'}
                 </Button>
+                {selectMode && selectedDocs.size > 0 && (
+                  <Button
+                    onClick={() => setShowBulkSendDialog(true)}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    size="sm"
+                    data-testid="button-bulk-send"
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    Enviar ({selectedDocs.size})
+                  </Button>
+                )}
+              </div>
+              {selectMode && (
+                <div className="flex justify-start">
+                  <button
+                    onClick={() => {
+                      const allDocIds = filteredMyDocs.map(doc => doc.id.toString());
+                      setSelectedDocs(new Set(allDocIds));
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Selecionar todos ({filteredMyDocs.length})
+                  </button>
+                </div>
               )}
             </div>
           )}
