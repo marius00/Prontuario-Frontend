@@ -44,6 +44,9 @@ export default function DashboardPage() {
   const [cancelSendDocId, setCancelSendDocId] = useState<string | null>(null);
   const [cancelSendReason, setCancelSendReason] = useState('');
 
+  // Edit loading state
+  const [isEditLoading, setIsEditLoading] = useState(false);
+
   // Undo Dialog State
   const [undoDocId, setUndoDocId] = useState<string | null>(null);
   const [undoReason, setUndoReason] = useState('');
@@ -149,24 +152,55 @@ export default function DashboardPage() {
     if (!dashDoc) return;
 
     setEditDocId(id);
-    setEditPatientName(`Doc #${dashDoc.number}`);
-    setEditNumeroAtendimento(dashDoc.observations || '');
-    setEditDocType(dashDoc.type as 'Ficha' | 'Prontuario');
-    setEditTitle(dashDoc.name || '');
+    // Map dashboard document data correctly to edit form fields:
+    setEditNumeroAtendimento(dashDoc.number?.toString() || ''); // Document number/ID
+    setEditPatientName(dashDoc.name || ''); // Document name
+    // DashboardDocument type is already in correct format (Ficha/Prontuario)
+    const docType = (dashDoc.type === 'Ficha' || dashDoc.type === 'Prontuario') ? dashDoc.type : 'Ficha';
+    setEditDocType(docType); // Document type
+    setEditTitle(dashDoc.observations || ''); // Observations/description
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (editDocId && editPatientName && editNumeroAtendimento) {
-      editDocument(editDocId, editTitle, editDocType, editPatientName, editNumeroAtendimento);
-      toast({
-        title: "Documento Atualizado",
-        description: "Alterações salvas com sucesso.",
-      });
-      setEditDocId(null);
-      setEditPatientName('');
-      setEditNumeroAtendimento('');
-      setEditDocType('Ficha');
-      setEditTitle('');
+      setIsEditLoading(true);
+
+      try {
+        const success = await editDocument(
+          parseInt(editDocId), // id
+          parseInt(editNumeroAtendimento), // number
+          editPatientName, // name
+          editDocType, // type
+          editTitle || undefined // observations
+        );
+
+        if (success) {
+          toast({
+            title: "Documento Atualizado",
+            description: "Alterações salvas com sucesso.",
+            className: "bg-green-600 text-white border-none"
+          });
+          setEditDocId(null);
+          setEditPatientName('');
+          setEditNumeroAtendimento('');
+          setEditDocType('Ficha');
+          setEditTitle('');
+        } else {
+          toast({
+            title: "Erro ao atualizar documento",
+            description: "Não foi possível salvar as alterações. Tente novamente.",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Erro ao atualizar documento",
+          description: "Ocorreu um erro inesperado. Tente novamente.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsEditLoading(false);
+      }
     }
   };
 
@@ -465,13 +499,13 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle>Editar Documento</DialogTitle>
             <DialogDescription>
-              Atualize as informações do documento e do paciente.
+              Atualize as informações do documento.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Número de Atendimento</Label>
-              <Input 
+              <Label>Número do Documento</Label>
+              <Input
                 type="number"
                 value={editNumeroAtendimento}
                 onChange={(e) => setEditNumeroAtendimento(e.target.value)}
@@ -479,8 +513,8 @@ export default function DashboardPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Nome Completo</Label>
-              <Input 
+              <Label>Nome do Documento</Label>
+              <Input
                 value={editPatientName}
                 onChange={(e) => setEditPatientName(e.target.value)}
                 className="h-10"
@@ -488,7 +522,7 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-2">
               <Label>Tipo de Documento</Label>
-              <Select value={editDocType} onValueChange={(v: any) => setEditDocType(v)}>
+              <Select key={editDocId} value={editDocType} onValueChange={(v: any) => setEditDocType(v)}>
                 <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
@@ -499,19 +533,21 @@ export default function DashboardPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Título / Descrição (Opcional)</Label>
-              <Input 
+              <Label>Observações (Opcional)</Label>
+              <Input
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                placeholder="ex: Raio-X Torax"
+                placeholder="ex: Raio-X Torax, Paciente: João Silva"
                 className="h-10"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDocId(null)}>Cancelar</Button>
-            <Button onClick={handleSaveEdit} disabled={!editPatientName || !editNumeroAtendimento}>
-              Salvar Alterações
+            <Button variant="outline" onClick={() => setEditDocId(null)} disabled={isEditLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={!editPatientName || !editNumeroAtendimento || isEditLoading}>
+              {isEditLoading ? "Salvando..." : "Salvar Alterações"}
             </Button>
           </DialogFooter>
         </DialogContent>

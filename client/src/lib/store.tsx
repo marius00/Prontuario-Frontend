@@ -47,7 +47,7 @@ interface AppState {
   loadUsers: (user: User) => Promise<void>;
   loadDashboardDocuments: (forceRefresh?: boolean) => Promise<void>;
   registerDocument: (number: number, name: string, type: DocumentType, observations?: string) => Promise<boolean>;
-  editDocument: (docId: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => void;
+  editDocument: (id: number, number: number, name: string, type: DocumentType, observations?: string) => Promise<boolean>;
   dispatchDocument: (docId: string, targetSectorId: string) => Promise<boolean>;
   cancelDispatch: (docId: string) => void;
   receiveDocument: (docId: string) => void;
@@ -372,26 +372,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const editDocument = (docId: string, title: string, type: DocumentType, patientName: string, numeroAtendimento: string) => {
-    if (!currentUser) return;
+  const editDocument = async (id: number, number: number, name: string, type: DocumentType, observations?: string): Promise<boolean> => {
+    if (!currentUser) return false;
 
-    const doc = documents.find(d => d.id === docId);
-    if (!doc || doc.createdByUserId !== currentUser.id) return;
+    try {
+      // Map DocumentType to GraphQL enum
+      const graphqlType = type === 'Ficha' ? 'FICHA' : 'PRONTUARIO';
 
-    let patient = patients.find(p => p.id === doc.patientId);
-    if (patient) {
-      setPatients(prev => prev.map(p => 
-        p.id === patient!.id 
-          ? { ...p, name: patientName, numeroAtendimento }
-          : p
-      ));
+      const mutation = `
+        mutation EditDocument($input: ExistingDocumentInput!) {
+          editDocument(input: $input) {
+            id
+            number
+            name
+            type
+            observations
+            sector {
+              name
+              code
+            }
+            history {
+              action
+              user
+              sector {
+                name
+                code
+              }
+              dateTime
+              description
+            }
+          }
+        }
+      `;
+
+      const input = {
+        id,
+        number,
+        name,
+        type: graphqlType,
+        observations: observations || null
+      };
+
+      const result = await graphqlFetch<{ editDocument: any }>({
+        query: mutation,
+        variables: { input }
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro ao editar documento');
+      }
+
+      // Refresh dashboard to show the updated document
+      await loadDashboardDocuments(true);
+      return true;
+    } catch (err) {
+      console.error('Erro ao editar documento', err);
+      return false;
     }
-
-    setDocuments(prev => prev.map(d => 
-      d.id === docId 
-        ? { ...d, title, type, updatedAt: new Date().toISOString() }
-        : d
-    ));
   };
 
   async function sendDocumentsViaGraphQL(docIds: string[], targetSectorId: string, currentUser: User | null) {
