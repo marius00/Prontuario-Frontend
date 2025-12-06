@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import {DocumentStatus} from "@/lib/types.ts";
 
 export default function DashboardPage() {
-  const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users, acceptDocument, rejectDocumentInbox } = useApp();
+  const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users, acceptDocument, rejectDocumentInbox, cancelSentDocument } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
   const [selectMode, setSelectMode] = useState(false);
@@ -39,6 +39,10 @@ export default function DashboardPage() {
   // Inbox Reject Dialog State
   const [rejectInboxDocId, setRejectInboxDocId] = useState<string | null>(null);
   const [rejectInboxReason, setRejectInboxReason] = useState('');
+
+  // Cancel Send Dialog State
+  const [cancelSendDocId, setCancelSendDocId] = useState<string | null>(null);
+  const [cancelSendReason, setCancelSendReason] = useState('');
 
   // Undo Dialog State
   const [undoDocId, setUndoDocId] = useState<string | null>(null);
@@ -249,6 +253,26 @@ export default function DashboardPage() {
     }
   };
 
+  const handleCancelSend = async () => {
+    if (cancelSendDocId && cancelSendReason) {
+      const success = await cancelSentDocument(cancelSendDocId, cancelSendReason);
+      if (success) {
+        toast({
+          title: "Envio Cancelado",
+          description: "O documento foi cancelado e retornará ao inventário.",
+        });
+        setCancelSendDocId(null);
+        setCancelSendReason('');
+      } else {
+        toast({
+          title: "Erro ao cancelar envio",
+          description: "Não foi possível cancelar o envio. Tente novamente.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -378,6 +402,8 @@ export default function DashboardPage() {
           ) : (
             filteredOutgoing.map(dashDoc => {
               const adaptedDoc = adaptDashboardDocToDocument(dashDoc);
+              // Set status to in-transit for outgoing documents to show correct actions
+              adaptedDoc.status = 'in-transit';
               return (
                 <DocumentCard
                   key={adaptedDoc.id}
@@ -388,7 +414,7 @@ export default function DashboardPage() {
                   sectors={sectors}
                   events={events}
                   users={users}
-                  onCancelDispatch={handleCancelDispatch}
+                  onCancelSend={setCancelSendDocId}
                 />
               );
             })
@@ -604,6 +630,34 @@ export default function DashboardPage() {
             <Button variant="outline" onClick={() => setRejectInboxDocId(null)}>Cancelar</Button>
             <Button onClick={handleRejectInbox} variant="destructive">
               Rejeitar Documento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Send Dialog */}
+      <Dialog open={!!cancelSendDocId} onOpenChange={(open) => !open && setCancelSendDocId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancelar Envio do Documento</DialogTitle>
+            <DialogDescription>
+              Tem certeza de que deseja cancelar o envio deste documento? Ele retornará ao seu inventário. Por favor, forneça uma descrição do motivo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Motivo do Cancelamento</Label>
+              <Textarea
+                placeholder="ex: Documento enviado por engano, Destinatário incorreto, Mudança de prioridade..."
+                value={cancelSendReason}
+                onChange={(e) => setCancelSendReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelSendDocId(null)}>Cancelar</Button>
+            <Button onClick={handleCancelSend} variant="destructive" disabled={!cancelSendReason.trim()}>
+              Confirmar Cancelamento
             </Button>
           </DialogFooter>
         </DialogContent>

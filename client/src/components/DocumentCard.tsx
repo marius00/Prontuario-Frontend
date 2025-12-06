@@ -34,9 +34,10 @@ interface DocumentCardProps {
   showInboxActions?: boolean;
   onAccept?: (id: string) => void;
   onRejectInbox?: (id: string) => void;
+  onCancelSend?: (id: string) => void;
 }
 
-export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], users = [], selectMode, isSelected, onSelect, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch, showInboxActions, onAccept, onRejectInbox }: DocumentCardProps) {
+export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], users = [], selectMode, isSelected, onSelect, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch, showInboxActions, onAccept, onRejectInbox, onCancelSend }: DocumentCardProps) {
   const getSectorName = (sectorId: string) => {
     return sectors.find(s => s.name === sectorId)?.name || sectorId;
   };
@@ -218,6 +219,16 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
                  Cancelar Envio
                </Button>
             )}
+
+             {/* Cancel Send Link (for sent documents on dashboard) */}
+             {doc.status === 'in-transit' && onCancelSend && (
+               <button
+                 onClick={() => onCancelSend(doc.id)}
+                 className="text-xs text-destructive hover:text-destructive/80 underline text-center py-1"
+               >
+                 Cancelar envio
+               </button>
+             )}
 
              {/* Undo Action for quick fixes on received items */}
              {doc.status === 'received' && onUndo && (
