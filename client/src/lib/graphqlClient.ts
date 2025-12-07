@@ -14,7 +14,9 @@ export interface GraphQLResponse<T> {
   errors?: GraphQLError[];
 }
 
-const GRAPHQL_ENDPOINT = 'http://localhost:8080/graphql';
+const GRAPHQL_ENDPOINT = process.env.NODE_ENV === 'production'
+  ? 'https://api.protocolo.evilsoft.net:8080/graphql'
+  : 'http://localhost:8080/graphql';
 
 export async function graphqlFetch<T = any>({
   query,
@@ -45,4 +47,3 @@ export async function graphqlFetch<T = any>({
 
   return response.json();
 }
-
