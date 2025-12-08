@@ -53,7 +53,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboardDocuments();
-  }, [loadDashboardDocuments]);
+  }, []); // Only run on mount
 
   // Adapter function to convert DashboardDocument to Document format for DocumentCard
   const adaptDashboardDocToDocument = (dashDoc: any) => ({
