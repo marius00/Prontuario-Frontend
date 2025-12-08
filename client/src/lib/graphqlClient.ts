@@ -15,7 +15,7 @@ export interface GraphQLResponse<T> {
 }
 
 const GRAPHQL_ENDPOINT = process.env.NODE_ENV === 'production'
-  ? 'https://api.protocolo.evilsoft.net:8080/graphql'
+  ? 'https://api.protocolo.evilsoft.net/graphql'
   : 'http://localhost:8080/graphql';
 
 export async function graphqlFetch<T = any>({
