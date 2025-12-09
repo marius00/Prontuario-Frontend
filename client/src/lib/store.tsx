@@ -380,8 +380,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         variables: { input }
       });
 
-      if (result.errors) {
-        throw new Error(result.errors[0]?.message || 'Erro ao criar documento');
+      if (result.errors && result.errors.length > 0) {
+        const firstError = result.errors[0];
+        if (firstError.extensions?.classification === 'VALIDATION') {
+          throw new Error(firstError.message);
+        } else {
+          throw new Error(firstError.message || 'Erro ao criar documento');
+        }
       }
 
       // Refresh dashboard to show the new document in inventory
@@ -397,9 +402,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       return true;
-    } catch (err) {
-      console.error('Erro ao registrar documento', err);
-      return false;
+    } catch (err: any) {
+      // Attach error message for UI
+      (err as any).uiMessage = err.message || 'Erro ao registrar documento';
+      throw err;
     }
   };
 

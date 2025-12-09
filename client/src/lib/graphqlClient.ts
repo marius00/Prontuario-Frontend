@@ -5,7 +5,14 @@ interface GraphQLRequestOptions {
   variables?: Record<string, any>;
 }
 
+export interface ErrorExtensions {
+  classification: String
+  errorType: String
+}
+
+
 export interface GraphQLError {
+  extensions?: ErrorExtensions;
   message: string;
 }
 

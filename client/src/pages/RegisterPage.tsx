@@ -57,10 +57,11 @@ export default function RegisterPage() {
           variant: "destructive"
         });
       }
-    } catch (error) {
+    } catch (error: any) {
+      const errorMsg = error?.uiMessage || error?.message || "Ocorreu um erro inesperado. Tente novamente.";
       toast({
         title: "Erro ao registrar documento",
-        description: "Ocorreu um erro inesperado. Tente novamente.",
+        description: errorMsg,
         variant: "destructive"
       });
     } finally {
