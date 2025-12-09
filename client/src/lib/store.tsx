@@ -87,7 +87,7 @@ interface AppState {
   bulkDispatchDocuments: (docIds: string[], targetSectorId: string) => Promise<boolean>;
   acceptDocument: (docId: string) => Promise<boolean>;
   rejectDocumentInbox: (docId: string, reason?: string) => Promise<boolean>;
-  cancelSentDocument: (docId: string, description: string) => Promise<boolean>;
+  cancelSentDocument: (docId: string, description?: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -1275,11 +1275,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const cancelSentDocument = async (docId: string, description: string): Promise<boolean> => {
+  const cancelSentDocument = async (docId: string, description?: string): Promise<boolean> => {
     if (!currentUser) return false;
     try {
       const mutation = `mutation CancelDocument($id: Int!, $description: String) { cancelDocument(id: $id, description: $description) { id number name type observations sector { name code } history { action user sector { name code } dateTime description } } }`;
-      const variables = { id: parseInt(docId), description };
+      const variables = { id: parseInt(docId), description: description || null };
       const result = await graphqlFetch<{ cancelDocument: any }>({ query: mutation, variables });
       if (result.errors) throw new Error(result.errors[0]?.message || 'Erro ao cancelar documento');
       // Refresh dashboard to update document status

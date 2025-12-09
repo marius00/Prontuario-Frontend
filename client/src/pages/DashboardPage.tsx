@@ -42,7 +42,7 @@ export default function DashboardPage() {
 
   // Cancel Send Dialog State
   const [cancelSendDocId, setCancelSendDocId] = useState<string | null>(null);
-  const [cancelSendReason, setCancelSendReason] = useState('');
+  const [cancelSendReason, setCancelSendReason] = useState<string>('');
 
   // Edit loading state
   const [isEditLoading, setIsEditLoading] = useState(false);
@@ -288,8 +288,9 @@ export default function DashboardPage() {
   };
 
   const handleCancelSend = async () => {
-    if (cancelSendDocId && cancelSendReason) {
-      const success = await cancelSentDocument(cancelSendDocId, cancelSendReason);
+    if (cancelSendDocId) {
+      // Pass undefined if empty, to make it optional
+      const success = await cancelSentDocument(cancelSendDocId, cancelSendReason || undefined);
       if (success) {
         toast({
           title: "Envio Cancelado",
@@ -691,12 +692,12 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle>Cancelar Envio do Documento</DialogTitle>
             <DialogDescription>
-              Tem certeza de que deseja cancelar o envio deste documento? Ele retornará ao seu inventário. Por favor, forneça uma descrição do motivo.
+              Tem certeza de que deseja cancelar o envio deste documento? Ele retornará ao seu inventário. O motivo é opcional.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Motivo do Cancelamento</Label>
+              <Label>Motivo do Cancelamento (Opcional)</Label>
               <Textarea
                 placeholder="ex: Documento enviado por engano, Destinatário incorreto, Mudança de prioridade..."
                 value={cancelSendReason}
@@ -706,7 +707,7 @@ export default function DashboardPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCancelSendDocId(null)}>Cancelar</Button>
-            <Button onClick={handleCancelSend} variant="destructive" disabled={!cancelSendReason.trim()}>
+            <Button onClick={handleCancelSend}>
               Confirmar Cancelamento
             </Button>
           </DialogFooter>
