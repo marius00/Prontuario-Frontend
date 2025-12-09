@@ -389,8 +389,8 @@ export default function DashboardPage() {
                 <DocumentCard
                   key={adaptedDoc.id}
                   doc={adaptedDoc}
-                  patientName={`Doc #${dashDoc.number}`} // Use document number as "patient"
-                  patientAtendimento={dashDoc.observations || 'Sem observações'}
+                  patientName={dashDoc.sector?.name || (currentUser?.sector.name || 'Unknown')}
+                  patientAtendimento={dashDoc.number?.toString() || ''}
                   showActions={!selectMode}
                   isCreator={adaptedDoc.createdByUserId === currentUser.id}
                   sectors={sectors}
@@ -419,14 +419,13 @@ export default function DashboardPage() {
           ) : (
             filteredIncoming.map(dashDoc => {
               const adaptedDoc = adaptDashboardDocToDocument(dashDoc);
-              // Set status to in-transit for inbox documents to show correct actions
               adaptedDoc.status = 'in-transit';
               return (
                 <DocumentCard
                   key={adaptedDoc.id}
                   doc={adaptedDoc}
-                  patientName={`Doc #${dashDoc.number}`}
-                  patientAtendimento={dashDoc.observations || 'Sem observações'}
+                  patientName={dashDoc.sector?.name || (currentUser?.sector.name || 'Unknown')}
+                  patientAtendimento={dashDoc.number?.toString() || ''}
                   showActions
                   showInboxActions
                   sectors={sectors}
@@ -451,14 +450,13 @@ export default function DashboardPage() {
           ) : (
             filteredOutgoing.map(dashDoc => {
               const adaptedDoc = adaptDashboardDocToDocument(dashDoc);
-              // Set status to in-transit for outgoing documents to show correct actions
               adaptedDoc.status = 'in-transit';
               return (
                 <DocumentCard
                   key={adaptedDoc.id}
                   doc={adaptedDoc}
-                  patientName={`Doc #${dashDoc.number}`}
-                  patientAtendimento={dashDoc.observations || 'Sem observações'}
+                  patientName={dashDoc.sector?.name || (currentUser?.sector.name || 'Unknown')}
+                  patientAtendimento={dashDoc.number?.toString() || ''}
                   showActions
                   sectors={sectors}
                   events={events}

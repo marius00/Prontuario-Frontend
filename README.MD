@@ -15,7 +15,7 @@ Missing:
 * Still missing request document
 * Dashboard, top of card show document number without #
 * Dashboard, where "doc #" is today, show the sector where it's at
-* add user fails in prod?
+
 
 How to run:
 nvm install 25.2.1
