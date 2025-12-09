@@ -126,7 +126,8 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
           </div>
         </div>
         <div className="flex flex-col items-end gap-2 shrink-0">
-          {isCreator && onEdit && (
+          {/* Only show edit icon button if not on search page (i.e., not just in dropdown) */}
+          {isCreator && onEdit && showActions && (
             <Button onClick={() => onEdit(doc.id)} variant="ghost" size="icon" className="shrink-0 h-7 w-7 text-muted-foreground hover:text-foreground">
               <Edit className="h-4 w-4" />
             </Button>
