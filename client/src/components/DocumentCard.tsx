@@ -132,7 +132,7 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
             </Button>
           )}
           {statusBadges[doc.status]}
-          {showMenu && (onViewHistory || onRequest) && (
+          {showMenu && (onViewHistory || onRequest || (isCreator && onEdit)) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="shrink-0 h-7 w-7 text-muted-foreground hover:text-foreground">
@@ -148,6 +148,11 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
                 {onRequest && (
                   <DropdownMenuItem onClick={() => onRequest(doc.id)}>
                     Solicitar
+                  </DropdownMenuItem>
+                )}
+                {isCreator && onEdit && (
+                  <DropdownMenuItem onClick={() => onEdit(doc.id)}>
+                    Editar
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

@@ -13,13 +13,19 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SearchPage() {
-  const { allDocuments, loadAllDocuments, currentUser, sectors, requestDocument, users } = useApp();
+  const { allDocuments, loadAllDocuments, currentUser, sectors, requestDocument, users, editDocument } = useApp();
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState<'doc' | 'patient'>('doc');
   const [requestDocId, setRequestDocId] = useState<string | null>(null);
   const [requestReason, setRequestReason] = useState('');
   const [historyDocId, setHistoryDocId] = useState<string | null>(null);
+  const [editDocId, setEditDocId] = useState<string | null>(null);
+  const [editNumeroAtendimento, setEditNumeroAtendimento] = useState('');
+  const [editPatientName, setEditPatientName] = useState('');
+  const [editDocType, setEditDocType] = useState<'Ficha' | 'Prontuario'>('Ficha');
+  const [editTitle, setEditTitle] = useState('');
+  const [isEditLoading, setIsEditLoading] = useState(false);
 
   // Load all documents on component mount
   useEffect(() => {
@@ -51,6 +57,58 @@ export default function SearchPage() {
       });
       setRequestDocId(null);
       setRequestReason('');
+    }
+  };
+
+  const handleEdit = (id: string) => {
+    const doc = allDocuments?.find(d => d.id.toString() === id);
+    if (!doc) return;
+    setEditDocId(id);
+    setEditNumeroAtendimento(doc.number?.toString() || '');
+    setEditPatientName(doc.name || '');
+    setEditDocType(doc.type === 'FICHA' ? 'Ficha' : 'Prontuario');
+    setEditTitle(doc.observations || '');
+  };
+
+  const handleSaveEdit = async () => {
+    if (editDocId && editPatientName && editNumeroAtendimento) {
+      setIsEditLoading(true);
+      try {
+        const success = await editDocument(
+          parseInt(editDocId),
+          parseInt(editNumeroAtendimento),
+          editPatientName,
+          editDocType,
+          editTitle || undefined
+        );
+        if (success) {
+          toast({
+            title: "Documento Atualizado",
+            description: "Alterações salvas com sucesso.",
+            className: "bg-green-600 text-white border-none"
+          });
+          setEditDocId(null);
+          setEditPatientName('');
+          setEditNumeroAtendimento('');
+          setEditDocType('Ficha');
+          setEditTitle('');
+          await loadAllDocuments(true);
+        } else {
+          toast({
+            title: "Erro ao atualizar documento",
+            description: "Não foi possível salvar as alterações. Tente novamente.",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Erro ao atualizar documento",
+          description: "Ocorreu um erro inesperado. Tente novamente.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsEditLoading(false);
+      }
     }
   };
 
@@ -99,7 +157,7 @@ export default function SearchPage() {
               createdByUserId: doc.createdBy,
               lastDispatchedBySectorId: doc.lastDispatchedBySectorId || undefined
             };
-
+            const isCreator = currentUser && doc.createdBy === currentUser.username;
             return (
               <div key={doc.id} className="relative">
                 <DocumentCard
@@ -111,6 +169,8 @@ export default function SearchPage() {
                   users={users}
                   onViewHistory={setHistoryDocId}
                   onRequest={setRequestDocId}
+                  isCreator={isCreator}
+                  onEdit={isCreator ? handleEdit : undefined}
                 />
               </div>
             );
@@ -193,6 +253,65 @@ export default function SearchPage() {
             <Button onClick={handleRequestDocument} disabled={!requestReason}>
               <Send className="mr-2 h-4 w-4" />
               Enviar Solicitação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editDocId} onOpenChange={(open) => !open && setEditDocId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Documento</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do documento.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Número do Documento</Label>
+              <Input
+                type="number"
+                value={editNumeroAtendimento}
+                onChange={(e) => setEditNumeroAtendimento(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome do Documento</Label>
+              <Input
+                value={editPatientName}
+                onChange={(e) => setEditPatientName(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Documento</Label>
+              <select
+                className="h-10 border rounded px-2 w-full"
+                value={editDocType}
+                onChange={e => setEditDocType(e.target.value as 'Ficha' | 'Prontuario')}
+              >
+                <option value="Ficha">Ficha</option>
+                <option value="Prontuario">Prontuário</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Observações (Opcional)</Label>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="ex: Raio-X Torax, Paciente: João Silva"
+                className="h-10"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDocId(null)} disabled={isEditLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={!editPatientName || !editNumeroAtendimento || isEditLoading}>
+              {isEditLoading ? "Salvando..." : "Salvar Alterações"}
             </Button>
           </DialogFooter>
         </DialogContent>
