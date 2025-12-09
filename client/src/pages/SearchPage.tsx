@@ -29,10 +29,12 @@ export default function SearchPage() {
 
   // Load all documents on component mount
   useEffect(() => {
+    console.log("loopey")
     if (currentUser) {
       loadAllDocuments();
     }
-  }, [currentUser, loadAllDocuments]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]); // Only run when currentUser changes
 
   const filteredDocs = (allDocuments || []).filter(d =>
     d.id.toString().toLowerCase().includes(query.toLowerCase()) ||
@@ -169,7 +171,7 @@ export default function SearchPage() {
                   users={users}
                   onViewHistory={setHistoryDocId}
                   onRequest={setRequestDocId}
-                  isCreator={isCreator}
+                  isCreator={isCreator || undefined}
                   onEdit={isCreator ? handleEdit : undefined}
                 />
               </div>
