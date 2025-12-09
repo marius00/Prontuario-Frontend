@@ -86,25 +86,26 @@ export default function SearchPage() {
              <div className="text-center py-8 text-muted-foreground">Nenhum documento encontrado.</div>
           )}
           {filteredDocs.map(doc => {
-            // Adapt GraphQL document to DocumentCard format
-            const adaptedDoc = {
+            // Adapt GraphQL document to Document type
+            const adaptedDoc: import('@/lib/types').Document = {
               id: doc.id.toString(),
-              title: doc.name,
+              title: doc.name || '',
               type: doc.type === 'FICHA' ? 'Ficha' : 'Prontuario',
-              patientId: `patient-${doc.id}`, // Synthetic patient ID
+              patientId: `patient-${doc.id}`,
               currentSectorId: doc.sector?.name || 'Unknown',
-              status: 'registered' as const,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              createdByUserId: 'unknown'
+              status: 'registered',
+              createdAt: doc.createdAt ? doc.createdAt : new Date().toISOString(),
+              updatedAt: doc.updatedAt ? doc.updatedAt : new Date().toISOString(),
+              createdByUserId: doc.createdByUserId ? doc.createdByUserId : 'unknown',
+              lastDispatchedBySectorId: doc.lastDispatchedBySectorId || undefined
             };
 
             return (
               <div key={doc.id} className="relative">
                 <DocumentCard
-                  doc={adaptedDoc.id}
-                  patientName={`Doc #${doc.number}`}
-                  patientAtendimento={doc.observations || 'Sem observações'}
+                  doc={adaptedDoc}
+                  patientName={doc.sector?.name || 'Unknown'}
+                  patientAtendimento={doc.number?.toString() || ''}
                   showMenu
                   sectors={sectors}
                   users={users}
