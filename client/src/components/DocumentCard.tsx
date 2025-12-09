@@ -165,7 +165,7 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
           )}
           {getSentInfo() && (
             <div className="text-xs text-muted-foreground">
-              Sent by {getSentInfo()!.fromSector}, {getSentInfo()!.user}, {format(new Date(getSentInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
+              Enviado por {getSentInfo()!.fromSector}, {getSentInfo()!.user}, {format(new Date(getSentInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
             </div>
           )}
           {doc.status === 'in-transit' && getMostRecentDispatchedEvent() && (

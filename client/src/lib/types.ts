@@ -82,6 +82,7 @@ export type DashboardDocument = {
   observations?: string;
   sector?: Sector;
   history: DashboardDocumentHistory[];
+  createdBy: string;
 };
 
 export type DashboardDocuments = {

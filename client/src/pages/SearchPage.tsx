@@ -96,7 +96,7 @@ export default function SearchPage() {
               status: 'registered',
               createdAt: doc.createdAt ? doc.createdAt : new Date().toISOString(),
               updatedAt: doc.updatedAt ? doc.updatedAt : new Date().toISOString(),
-              createdByUserId: doc.createdByUserId ? doc.createdByUserId : 'unknown',
+              createdByUserId: doc.createdBy,
               lastDispatchedBySectorId: doc.lastDispatchedBySectorId || undefined
             };
 

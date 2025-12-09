@@ -65,7 +65,7 @@ export default function DashboardPage() {
     status: 'registered' as DocumentStatus,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    createdByUserId: currentUser?.id || 'unknown',
+    createdByUserId: dashDoc.createdBy,
     // Add DashboardDocument specific properties for easy access
     number: dashDoc.number,
     observations: dashDoc.observations,
@@ -385,6 +385,7 @@ export default function DashboardPage() {
           ) : (
             filteredMyDocs.map(dashDoc => {
               const adaptedDoc = adaptDashboardDocToDocument(dashDoc);
+              console.log("created", adaptedDoc, adaptedDoc.createdByUserId, currentUser.username)
               return (
                 <DocumentCard
                   key={adaptedDoc.id}
@@ -392,7 +393,7 @@ export default function DashboardPage() {
                   patientName={dashDoc.sector?.name || (currentUser?.sector.name || 'Unknown')}
                   patientAtendimento={dashDoc.number?.toString() || ''}
                   showActions={!selectMode}
-                  isCreator={adaptedDoc.createdByUserId === currentUser.id}
+                  isCreator={adaptedDoc.createdByUserId === currentUser.username}
                   sectors={sectors}
                   events={events}
                   users={users}

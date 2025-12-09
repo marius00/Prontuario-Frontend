@@ -10,11 +10,8 @@ Missing:
 * "require password reset on next login" when creating user.. needs backend + frontend support.
 * Need to go over the repo, lots of minor mistakes made, vars not existing etc.
 * the edit button is shown for all now, the schema lacks PublicUserInfo on document, so cannot determine who created it.
-** search card is.. lacking, does not show who has it etc.
 * still missing history
 * Still missing request document
-* Dashboard, top of card show document number without #
-* Dashboard, where "doc #" is today, show the sector where it's at
 
 
 How to run:

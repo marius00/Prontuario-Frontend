@@ -1052,6 +1052,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 dateTime
                 description
               }
+              createdBy
             }
             inbox {
               id
@@ -1073,6 +1074,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 dateTime
                 description
               }
+              createdBy
             }
             outbox {
               id
@@ -1094,6 +1096,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 dateTime
                 description
               }
+              createdBy
             }
           }
         }
@@ -1184,6 +1187,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               dateTime
               description
             }
+            createdBy
           }
         }
       `;
