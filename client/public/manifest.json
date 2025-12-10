@@ -1,0 +1,39 @@
+{
+  "name": "Protocolo Digital",
+  "short_name": "Protocolo",
+  "description": "Mobile-first document tracking and sector dispatch system",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "./favicon.ico",
+      "sizes": "192x192",
+      "type": "image/x-icon",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./favicon.ico",
+      "sizes": "512x512",
+      "type": "image/x-icon",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["productivity", "business", "medical"],
+  "lang": "pt-BR",
+  "scope": "./",
+  "prefer_related_applications": false
+}
+
