@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '@/lib/store';
 import { DocumentCard } from '@/components/DocumentCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Inbox, Send, Truck, Upload } from 'lucide-react';
+import { Search, Inbox, Send, Truck, Upload, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {DocumentStatus} from "@/lib/types.ts";
 
@@ -21,6 +21,14 @@ export default function DashboardPage() {
   const [showBulkSendDialog, setShowBulkSendDialog] = useState(false);
   const [bulkTargetSectorId, setBulkTargetSectorId] = useState<string>('');
   
+  // Pull-to-refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const startY = useRef<number>(0);
+  const currentY = useRef<number>(0);
+
   // Edit Dialog State
   const [editDocId, setEditDocId] = useState<string | null>(null);
   const [editPatientName, setEditPatientName] = useState('');
@@ -308,16 +316,138 @@ export default function DashboardPage() {
     }
   };
 
+  // Pull-to-refresh handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (isRefreshing || window.scrollY > 0) return;
+    startY.current = e.touches[0].clientY;
+    setIsDragging(false);
+  }, [isRefreshing]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (isRefreshing || window.scrollY > 0) return;
+    currentY.current = e.touches[0].clientY;
+    const diff = currentY.current - startY.current;
+    if (diff > 0 && diff < 200) { // Cap at 200px
+      setPullDistance(Math.min(diff, 150));
+      setIsDragging(true);
+      // Prevent default scroll behavior when pulling
+      e.preventDefault();
+    }
+  }, [isRefreshing]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsDragging(false);
+
+    if (pullDistance > 80) { // Lower threshold for better UX
+      setIsRefreshing(true);
+      setPullDistance(0);
+
+      try {
+        await loadDashboardDocuments(true); // Force refresh
+        toast({
+          title: "Atualizado",
+          description: "Dados atualizados com sucesso.",
+          className: "bg-green-600 text-white border-none"
+        });
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível atualizar os dados.",
+          variant: "destructive"
+        });
+      } finally {
+        setTimeout(() => setIsRefreshing(false), 500);
+      }
+    } else {
+      setPullDistance(0);
+    }
+  }, [isRefreshing, pullDistance, loadDashboardDocuments, toast]);
+
+  const handleRefreshClick = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+
+    try {
+      await loadDashboardDocuments(true);
+      toast({
+        title: "Atualizado",
+        description: "Dados atualizados com sucesso.",
+        className: "bg-green-600 text-white border-none"
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar os dados.",
+        variant: "destructive"
+      });
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  }, [isRefreshing, loadDashboardDocuments, toast]);
+
+  const containerStyle = {
+    touchAction: 'pan-y',
+    overscrollBehavior: 'contain',
+  } as React.CSSProperties;
+
   return (
-    <div className="space-y-4">
-      <div className="relative">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-        <Input 
-          placeholder="Filtrar por Nome, Atendimento..." 
-          className="pl-9 bg-card"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
+    <div
+      ref={containerRef}
+      className="space-y-4"
+      style={containerStyle}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      {(pullDistance > 10 || isRefreshing) && (
+        <div
+          className="flex items-center justify-center py-3 bg-primary/10 rounded-lg transition-all duration-200 mb-2"
+          style={{
+            opacity: Math.min(pullDistance / 60, 1),
+            transform: `translateY(${Math.max(0, pullDistance - 40)}px)`
+          }}
+        >
+          <RefreshCw
+            className={`h-5 w-5 text-primary transition-transform duration-200 ${
+              isRefreshing ? 'animate-spin' : ''
+            }`}
+            style={{
+              transform: `rotate(${pullDistance * 2}deg)`
+            }}
+          />
+          <span className="ml-2 text-sm text-primary font-medium">
+            {isRefreshing
+              ? 'Atualizando...'
+              : pullDistance > 80
+                ? 'Solte para atualizar'
+                : 'Puxe para atualizar'
+            }
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Filtrar por Nome, Atendimento..."
+            className="pl-9 bg-card"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+        </div>
+        {/* Desktop refresh button */}
+        <Button
+          onClick={handleRefreshClick}
+          variant="outline"
+          size="sm"
+          disabled={isRefreshing}
+          className="hidden sm:flex"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </Button>
       </div>
 
       <Tabs defaultValue="inventory" className="w-full">

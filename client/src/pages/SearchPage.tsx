@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search as SearchIcon, User, Send } from 'lucide-react';
+import { Search as SearchIcon, User, Send, RefreshCw } from 'lucide-react';
 import { DocumentCard } from '@/components/DocumentCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -27,9 +27,16 @@ export default function SearchPage() {
   const [editTitle, setEditTitle] = useState('');
   const [isEditLoading, setIsEditLoading] = useState(false);
 
+  // Pull-to-refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const startY = useRef<number>(0);
+  const currentY = useRef<number>(0);
+
   // Load all documents on component mount
   useEffect(() => {
-    console.log("loopey")
     if (currentUser) {
       loadAllDocuments();
     }
@@ -114,8 +121,116 @@ export default function SearchPage() {
     }
   };
 
+  // Pull-to-refresh handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (isRefreshing || window.scrollY > 0) return;
+    startY.current = e.touches[0].clientY;
+    setIsDragging(false);
+  }, [isRefreshing]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (isRefreshing || window.scrollY > 0) return;
+    currentY.current = e.touches[0].clientY;
+    const diff = currentY.current - startY.current;
+    if (diff > 0 && diff < 200) {
+      setPullDistance(Math.min(diff, 150));
+      setIsDragging(true);
+      e.preventDefault();
+    }
+  }, [isRefreshing]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsDragging(false);
+
+    if (pullDistance > 80) {
+      setIsRefreshing(true);
+      setPullDistance(0);
+
+      try {
+        await loadAllDocuments(true);
+        toast({
+          title: "Atualizado",
+          description: "Dados atualizados com sucesso.",
+          className: "bg-green-600 text-white border-none"
+        });
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível atualizar os dados.",
+          variant: "destructive"
+        });
+      } finally {
+        setTimeout(() => setIsRefreshing(false), 500);
+      }
+    } else {
+      setPullDistance(0);
+    }
+  }, [isRefreshing, pullDistance, loadAllDocuments, toast]);
+
+  const handleRefreshClick = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+
+    try {
+      await loadAllDocuments(true);
+      toast({
+        title: "Atualizado",
+        description: "Dados atualizados com sucesso.",
+        className: "bg-green-600 text-white border-none"
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar os dados.",
+        variant: "destructive"
+      });
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  }, [isRefreshing, loadAllDocuments, toast]);
+
+  const containerStyle = {
+    touchAction: 'pan-y',
+    overscrollBehavior: 'contain',
+  } as React.CSSProperties;
+
   return (
-    <div className="space-y-4">
+    <div
+      ref={containerRef}
+      className="space-y-4"
+      style={containerStyle}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      {(pullDistance > 10 || isRefreshing) && (
+        <div
+          className="flex items-center justify-center py-3 bg-primary/10 rounded-lg transition-all duration-200 mb-2"
+          style={{
+            opacity: Math.min(pullDistance / 60, 1),
+            transform: `translateY(${Math.max(0, pullDistance - 40)}px)`
+          }}
+        >
+          <RefreshCw
+            className={`h-5 w-5 text-primary transition-transform duration-200 ${
+              isRefreshing ? 'animate-spin' : ''
+            }`}
+            style={{
+              transform: `rotate(${pullDistance * 2}deg)`
+            }}
+          />
+          <span className="ml-2 text-sm text-primary font-medium">
+            {isRefreshing
+              ? 'Atualizando...'
+              : pullDistance > 80
+                ? 'Solte para atualizar'
+                : 'Puxe para atualizar'
+            }
+          </span>
+        </div>
+      )}
       <div className="flex items-center gap-2 mb-4">
         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
           <SearchIcon className="h-6 w-6" />
@@ -133,6 +248,16 @@ export default function SearchPage() {
             className="pl-9 h-12 text-lg"
           />
         </div>
+        {/* Desktop refresh button */}
+        <Button
+          onClick={handleRefreshClick}
+          variant="outline"
+          size="sm"
+          disabled={isRefreshing}
+          className="hidden sm:flex h-12"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </Button>
       </div>
 
       <Tabs value={searchType} onValueChange={(v) => setSearchType(v as any)} className="w-full">
