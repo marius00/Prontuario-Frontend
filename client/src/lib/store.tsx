@@ -86,6 +86,7 @@ interface AppState {
   disableSector: (sectorName: string) => Promise<{ success: boolean; error?: string }>;
   bulkDispatchDocuments: (docIds: string[], targetSectorId: string) => Promise<boolean>;
   acceptDocument: (docId: string) => Promise<boolean>;
+  acceptDocuments: (docIds: string[]) => Promise<boolean>;
   rejectDocumentInbox: (docId: string, reason?: string) => Promise<boolean>;
   cancelSentDocument: (docId: string, description?: string) => Promise<boolean>;
 }
@@ -1251,6 +1252,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const acceptDocuments = async (docIds: string[]): Promise<boolean> => {
+    if (!currentUser) return false;
+    try {
+      const mutation = `mutation AcceptDocuments($ids: [Int!]!) { acceptDocuments(ids: $ids) { id number name type observations sector { name code } history { action user sector { name code } dateTime description } } }`;
+      const variables = { ids: docIds.map(id => parseInt(id)) };
+      const result = await graphqlFetch<{ acceptDocuments: any[] }>({ query: mutation, variables });
+      if (result.errors) throw new Error(result.errors[0]?.message || 'Erro ao aceitar documentos');
+
+      // Refresh dashboard to update document status
+      await loadDashboardDocuments(true);
+
+      // Also update allDocuments cache
+      if (result.data?.acceptDocuments) {
+        try {
+          for (const doc of result.data.acceptDocuments) {
+            await updateDocumentInAllDocsCache(doc);
+          }
+        } catch (err) {
+          console.error('Erro ao atualizar cache de todos os documentos', err);
+        }
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Erro ao aceitar documentos', err);
+      return false;
+    }
+  };
+
   const rejectDocumentInbox = async (docId: string, reason?: string): Promise<boolean> => {
     if (!currentUser) return false;
     try {
@@ -1344,6 +1374,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         disableSector,
         bulkDispatchDocuments,
         acceptDocument,
+        acceptDocuments,
         rejectDocumentInbox,
         cancelSentDocument,
       }}

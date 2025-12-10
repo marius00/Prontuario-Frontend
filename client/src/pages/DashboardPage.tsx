@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import {DocumentStatus} from "@/lib/types.ts";
 
 export default function DashboardPage() {
-  const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users, acceptDocument, rejectDocumentInbox, cancelSentDocument } = useApp();
+  const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users, acceptDocument, acceptDocuments, rejectDocumentInbox, cancelSentDocument } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
   const [selectMode, setSelectMode] = useState(false);
@@ -541,6 +541,44 @@ export default function DashboardPage() {
         </TabsContent>
         
         <TabsContent value="incoming" className="space-y-3">
+          {filteredIncoming.length > 5 && (
+            <div className="flex justify-end mb-2">
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={async () => {
+                  const ids = filteredIncoming.map(doc => doc.id.toString());
+                  if (ids.length === 0) return;
+
+                  try {
+                    const success = await acceptDocuments(ids);
+                    if (success) {
+                      toast({
+                        title: "Todos os documentos aceitos",
+                        description: `${ids.length} documentos foram aceitos e movidos para o inventário.`,
+                        className: "bg-green-600 text-white border-none"
+                      });
+                    } else {
+                      toast({
+                        title: "Erro ao aceitar documentos",
+                        description: "Não foi possível aceitar todos os documentos. Tente novamente.",
+                        variant: "destructive"
+                      });
+                    }
+                  } catch (err) {
+                    toast({
+                      title: "Erro ao aceitar documentos",
+                      description: "Ocorreu um erro inesperado. Tente novamente.",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+              >
+                Aceitar Todos
+              </Button>
+            </div>
+          )}
+
           {filteredIncoming.length === 0 ? (
              <div className="text-center py-10 text-muted-foreground">
               <div className="h-10 w-10 mx-auto mb-2 opacity-20 flex items-center justify-center rounded-full border-2 border-dashed">
