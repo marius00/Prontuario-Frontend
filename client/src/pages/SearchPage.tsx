@@ -319,7 +319,7 @@ export default function SearchPage() {
           <DialogHeader>
             <DialogTitle>Histórico do Documento</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 py-4">
+          <div className="space-y-2 py-4 max-h-80 overflow-y-auto">
             {historyDocId && (() => {
               const doc = allDocuments?.find(d => d.id.toString() === historyDocId);
               const history = doc?.history || [];
