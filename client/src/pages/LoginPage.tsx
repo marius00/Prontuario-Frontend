@@ -135,7 +135,7 @@ export default function LoginPage() {
         active: true,
       };
 
-      login(mappedUser);
+      await login(mappedUser);
 
       // Load sectors and users if user is admin
       if (mappedUser.role === 'admin') {

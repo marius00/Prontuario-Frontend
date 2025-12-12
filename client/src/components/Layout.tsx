@@ -20,7 +20,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   if (!currentUser) {
-    return <div className="min-h-screen bg-background">{children}</div>;
+    // This should not happen with AuthGuard, but just in case
+    return null;
   }
 
   const currentSector = sectors.find(s => s.name === currentUser.sector.name);
@@ -109,7 +110,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 Alterar Senha
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive">
+              <DropdownMenuItem onClick={() => logout().catch(console.error)} className="cursor-pointer text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sair
               </DropdownMenuItem>
@@ -181,20 +182,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 border-t bg-card z-50 pb-safe">
         <div className="flex items-center justify-around h-16 max-w-md mx-auto">
-          <Link href="/"  className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+          <Link to="/" className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
             <LayoutDashboard className="h-6 w-6" />
             <span className="text-[10px] font-medium">Painel</span>
           </Link>
-          <Link href="/register" className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/register' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+          <Link to="/register" className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/register' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
             <PlusCircle className="h-6 w-6" />
             <span className="text-[10px] font-medium">Registrar</span>
           </Link>
-          <Link href="/search"  className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/search' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+          <Link to="/search" className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/search' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
             <Search className="h-6 w-6" />
             <span className="text-[10px] font-medium">Buscar</span>
           </Link>
           {currentUser?.role === 'admin' && (
-            <Link href="/admin"  className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/admin' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+            <Link to="/admin" className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/admin' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
               <Settings className="h-6 w-6" />
               <span className="text-[10px] font-medium">Administrar</span>
             </Link>

@@ -21,6 +21,12 @@ import {
   addDocumentToAllDocsCache
 } from '@/lib/indexedDb';
 import { graphqlFetch } from '@/lib/graphqlClient';
+import {
+  setupPushNotifications,
+  cleanupPushNotifications,
+  registerServiceWorker,
+  isNotificationSupported
+} from '@/lib/pushNotifications';
 
 // Helper function to handle GraphQL errors consistently
 const handleGraphQLError = (result: any, defaultMessage: string): string => {
@@ -59,8 +65,8 @@ interface AppState {
   patients: Patient[];
   events: DocumentEvent[];
   users: User[]; // For now this can represent only the currently logged in user in an array
-  login: (user: User) => void;
-  logout: () => void;
+  login: (user: User) => Promise<void>;
+  logout: () => Promise<void>;
   loadSectors: (user: User) => Promise<void>;
   loadUsers: (user: User) => Promise<void>;
   loadDashboardDocuments: (forceRefresh?: boolean) => Promise<void>;
@@ -206,6 +212,257 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadUserAndSectorsFromDb();
   }, []);
 
+  // Load functions - declared early to avoid temporal dead zone issues
+  const loadDashboardDocuments = async (forceRefresh = false) => {
+    if (!currentUser) return;
+
+    try {
+      // First try to load from cache, unless forceRefresh is true
+      if (!forceRefresh) {
+        const cached = await loadDashboardDocsFromCache();
+        const FIVE_MINUTES_MS = 5 * 60 * 1000; // Cache for 5 minutes
+        const now = Date.now();
+
+        if (cached && cached.inventory && cached.inbox && cached.outbox) {
+          const isStale = now - cached.updatedAt > FIVE_MINUTES_MS;
+
+          // Set cached data immediately
+          setDashboardDocuments({
+            inventory: cached.inventory,
+            inbox: cached.inbox,
+            outbox: cached.outbox
+          });
+
+          // If not stale, return early
+          if (!isStale) {
+            return;
+          }
+        }
+      }
+
+      // Load from GraphQL API
+      const query = `
+        query ListDocumentsForDashboard {
+          listDocumentsForDashboard {
+            inventory {
+              id
+              number
+              name
+              type
+              observations
+              sector {
+                name
+                code
+              }
+              history {
+                action
+                user
+                sector {
+                  name
+                  code
+                }
+                dateTime
+                description
+              }
+              createdBy
+            }
+            inbox {
+              id
+              number
+              name
+              type
+              observations
+              sector {
+                name
+                code
+              }
+              history {
+                action
+                user
+                sector {
+                  name
+                  code
+                }
+                dateTime
+                description
+              }
+              createdBy
+            }
+            outbox {
+              id
+              number
+              name
+              type
+              observations
+              sector {
+                name
+                code
+              }
+              history {
+                action
+                user
+                sector {
+                  name
+                  code
+                }
+                dateTime
+                description
+              }
+              createdBy
+            }
+          }
+        }
+      `;
+
+      const result = await graphqlFetch<{ listDocumentsForDashboard: DashboardDocuments }>({
+        query,
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro ao carregar documentos do dashboard');
+      }
+
+      const dashboardData = result.data?.listDocumentsForDashboard;
+      if (dashboardData) {
+        setDashboardDocuments(dashboardData);
+        // Persist in cache with timestamp
+        await saveDashboardDocsToCache({
+          inventory: dashboardData.inventory,
+          inbox: dashboardData.inbox,
+          outbox: dashboardData.outbox,
+          updatedAt: Date.now(),
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao carregar documentos do dashboard', err);
+      // Fallback to cache if available and not already loaded
+      if (!dashboardDocuments) {
+        try {
+          const cached = await loadDashboardDocsFromCache();
+          if (cached && cached.inventory && cached.inbox && cached.outbox) {
+            setDashboardDocuments({
+              inventory: cached.inventory,
+              inbox: cached.inbox,
+              outbox: cached.outbox
+            });
+          }
+        } catch (cacheErr) {
+          console.error('Erro ao carregar documentos do cache', cacheErr);
+        }
+      }
+    }
+  };
+
+  const loadAllDocuments = async (forceRefresh = false) => {
+    if (!currentUser) return;
+
+    try {
+      // First try to load from cache, unless forceRefresh is true
+      if (!forceRefresh) {
+        const cached = await loadAllDocumentsFromCache();
+        const TEN_MINUTES_MS = 10 * 60 * 1000; // Cache for 10 minutes
+        const now = Date.now();
+
+        if (cached && cached.documents) {
+          const isStale = now - cached.updatedAt > TEN_MINUTES_MS;
+
+          // Set cached data immediately
+          setAllDocuments(cached.documents);
+
+          // If not stale, return early
+          if (!isStale) {
+            return;
+          }
+        }
+      }
+
+      // Load from GraphQL API
+      const query = `
+        query ListAllDocuments {
+          listAllDocuments {
+            id
+            number
+            name
+            type
+            observations
+            sector {
+              name
+              code
+            }
+            history {
+              action
+              user
+              sector {
+                name
+                code
+              }
+              dateTime
+              description
+            }
+            createdBy
+          }
+        }
+      `;
+
+      const result = await graphqlFetch<{ listAllDocuments: any[] }>({
+        query,
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]?.message || 'Erro ao carregar todos os documentos');
+      }
+
+      const allDocsData = result.data?.listAllDocuments;
+      if (allDocsData) {
+        setAllDocuments(allDocsData);
+        // Persist in cache with timestamp
+        await saveAllDocumentsToCache({
+          documents: allDocsData,
+          updatedAt: Date.now(),
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao carregar todos os documentos', err);
+      // Fallback to cache if available and not already loaded
+      if (!allDocuments) {
+        try {
+          const cached = await loadAllDocumentsFromCache();
+          if (cached && cached.documents) {
+            setAllDocuments(cached.documents);
+          }
+        } catch (cacheErr) {
+          console.error('Erro ao carregar documentos do cache', cacheErr);
+        }
+      }
+    }
+  };
+
+  // Listen for background sync events from service worker
+  useEffect(() => {
+    const handleBackgroundSync = (event: CustomEvent) => {
+      console.log('Background sync requested by service worker:', event.detail);
+
+      // Perform background sync operations
+      if (currentUser) {
+        // Refresh dashboard documents in the background
+        loadDashboardDocuments(true).catch(err => {
+          console.error('Background sync failed for dashboard:', err);
+        });
+
+        // Refresh all documents cache if needed
+        loadAllDocuments(true).catch(err => {
+          console.error('Background sync failed for all documents:', err);
+        });
+      }
+    };
+
+    window.addEventListener('background-sync', handleBackgroundSync as EventListener);
+
+    return () => {
+      window.removeEventListener('background-sync', handleBackgroundSync as EventListener);
+    };
+  }, [currentUser, loadDashboardDocuments, loadAllDocuments]);
+
   const refreshSectorsFromApi = async (user: User) => {
     console.log('refreshSectorsFromApi called for user:', user.username);
     const query = `
@@ -313,27 +570,81 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const login = (user: User) => {
+  const login = async (user: User): Promise<void> => {
+    console.log('Login called for user:', user.username);
     setCurrentUser((prev) => {
       if (prev && prev.id === user.id) return prev;
       return user;
     });
+
+    // Setup push notifications after successful login
+    console.log('Checking if notifications are supported...');
+    const supported = isNotificationSupported();
+    console.log('Notifications supported:', supported);
+    console.log('ServiceWorker supported:', 'serviceWorker' in navigator);
+    console.log('PushManager supported:', 'PushManager' in window);
+    console.log('Notification supported:', 'Notification' in window);
+
+    if (supported) {
+      console.log('Starting push notification setup...');
+      try {
+        // Set up push notifications with a timeout to avoid blocking login too long
+        const timeoutPromise = new Promise<void>((resolve) => {
+          setTimeout(() => {
+            console.log('Push notification setup timeout reached, continuing...');
+            resolve();
+          }, 5000); // 5 second timeout
+        });
+
+        const setupPromise = setupPushNotifications().then((result) => {
+          console.log('Push notification setup result:', result);
+          if (result.success) {
+            console.log('Push notifications setup successfully');
+          } else {
+            console.log('Push notifications setup failed or denied by user');
+          }
+        });
+
+        // Wait for either the setup to complete or timeout
+        await Promise.race([setupPromise, timeoutPromise]);
+      } catch (error) {
+        console.error('Push notification setup error:', error);
+      }
+    } else {
+      console.log('Push notifications not supported, skipping setup');
+    }
   };
 
-  const logout = () => {
+  const logout = async (): Promise<void> => {
+    try {
+      // Cleanup push notifications BEFORE clearing auth token
+      console.log('Starting push notification cleanup...');
+      await cleanupPushNotifications();
+      console.log('Push notifications cleaned up successfully');
+    } catch (error) {
+      console.error('Push notification cleanup error:', error);
+      // Continue with logout even if cleanup fails
+    }
+
+    // Now clear user state and tokens
     setCurrentUser(null);
     setUsers([]);
 
     // Clear all persisted auth-related and cached view data
-    Promise.all([
-      clearUserProfile(),
-      clearAuthToken(),
-      clearAllViewData(),
-      clearSectorsCache(),
-      clearUsersCache(),
-      clearDashboardDocsCache(),
-      clearAllDocumentsCache(),
-    ]).catch((err) => console.error('Erro ao limpar dados do usuário no IndexedDB', err));
+    try {
+      await Promise.all([
+        clearUserProfile(),
+        clearAuthToken(),
+        clearAllViewData(),
+        clearSectorsCache(),
+        clearUsersCache(),
+        clearDashboardDocsCache(),
+        clearAllDocumentsCache(),
+      ]);
+      console.log('All user data cleared successfully');
+    } catch (err) {
+      console.error('Erro ao limpar dados do usuário no IndexedDB', err);
+    }
   };
 
   const registerDocument = async (number: number, name: string, type: DocumentType, observations?: string): Promise<boolean> => {
@@ -1002,229 +1313,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const loadDashboardDocuments = async (forceRefresh = false) => {
-    if (!currentUser) return;
 
-    try {
-      // First try to load from cache, unless forceRefresh is true
-      if (!forceRefresh) {
-        const cached = await loadDashboardDocsFromCache();
-        const FIVE_MINUTES_MS = 5 * 60 * 1000; // Cache for 5 minutes
-        const now = Date.now();
 
-        if (cached && cached.inventory && cached.inbox && cached.outbox) {
-          const isStale = now - cached.updatedAt > FIVE_MINUTES_MS;
 
-          // Set cached data immediately
-          setDashboardDocuments({
-            inventory: cached.inventory,
-            inbox: cached.inbox,
-            outbox: cached.outbox
-          });
-
-          // If not stale, return early
-          if (!isStale) {
-            return;
-          }
-        }
-      }
-
-      // Load from GraphQL API
-      const query = `
-        query ListDocumentsForDashboard {
-          listDocumentsForDashboard {
-            inventory {
-              id
-              number
-              name
-              type
-              observations
-              sector {
-                name
-                code
-              }
-              history {
-                action
-                user
-                sector {
-                  name
-                  code
-                }
-                dateTime
-                description
-              }
-              createdBy
-            }
-            inbox {
-              id
-              number
-              name
-              type
-              observations
-              sector {
-                name
-                code
-              }
-              history {
-                action
-                user
-                sector {
-                  name
-                  code
-                }
-                dateTime
-                description
-              }
-              createdBy
-            }
-            outbox {
-              id
-              number
-              name
-              type
-              observations
-              sector {
-                name
-                code
-              }
-              history {
-                action
-                user
-                sector {
-                  name
-                  code
-                }
-                dateTime
-                description
-              }
-              createdBy
-            }
-          }
-        }
-      `;
-
-      const result = await graphqlFetch<{ listDocumentsForDashboard: DashboardDocuments }>({
-        query,
-      });
-
-      if (result.errors) {
-        throw new Error(result.errors[0]?.message || 'Erro ao carregar documentos do dashboard');
-      }
-
-      const dashboardData = result.data?.listDocumentsForDashboard;
-      if (dashboardData) {
-        setDashboardDocuments(dashboardData);
-        // Persist in cache with timestamp
-        await saveDashboardDocsToCache({
-          inventory: dashboardData.inventory,
-          inbox: dashboardData.inbox,
-          outbox: dashboardData.outbox,
-          updatedAt: Date.now(),
-        });
-      }
-    } catch (err) {
-      console.error('Erro ao carregar documentos do dashboard', err);
-      // Fallback to cache if available and not already loaded
-      if (!dashboardDocuments) {
-        try {
-          const cached = await loadDashboardDocsFromCache();
-          if (cached && cached.inventory && cached.inbox && cached.outbox) {
-            setDashboardDocuments({
-              inventory: cached.inventory,
-              inbox: cached.inbox,
-              outbox: cached.outbox
-            });
-          }
-        } catch (cacheErr) {
-          console.error('Erro ao carregar documentos do cache', cacheErr);
-        }
-      }
-    }
-  };
-
-  const loadAllDocuments = async (forceRefresh = false) => {
-    if (!currentUser) return;
-
-    try {
-      // First try to load from cache, unless forceRefresh is true
-      if (!forceRefresh) {
-        const cached = await loadAllDocumentsFromCache();
-        const TEN_MINUTES_MS = 10 * 60 * 1000; // Cache for 10 minutes
-        const now = Date.now();
-
-        if (cached && cached.documents) {
-          const isStale = now - cached.updatedAt > TEN_MINUTES_MS;
-
-          // Set cached data immediately
-          setAllDocuments(cached.documents);
-
-          // If not stale, return early
-          if (!isStale) {
-            return;
-          }
-        }
-      }
-
-      // Load from GraphQL API
-      const query = `
-        query ListAllDocuments {
-          listAllDocuments {
-            id
-            number
-            name
-            type
-            observations
-            sector {
-              name
-              code
-            }
-            history {
-              action
-              user
-              sector {
-                name
-                code
-              }
-              dateTime
-              description
-            }
-            createdBy
-          }
-        }
-      `;
-
-      const result = await graphqlFetch<{ listAllDocuments: any[] }>({
-        query,
-      });
-
-      if (result.errors) {
-        throw new Error(result.errors[0]?.message || 'Erro ao carregar todos os documentos');
-      }
-
-      const allDocsData = result.data?.listAllDocuments;
-      if (allDocsData) {
-        setAllDocuments(allDocsData);
-        // Persist in cache with timestamp
-        await saveAllDocumentsToCache({
-          documents: allDocsData,
-          updatedAt: Date.now(),
-        });
-      }
-    } catch (err) {
-      console.error('Erro ao carregar todos os documentos', err);
-      // Fallback to cache if available and not already loaded
-      if (!allDocuments) {
-        try {
-          const cached = await loadAllDocumentsFromCache();
-          if (cached && cached.documents) {
-            setAllDocuments(cached.documents);
-          }
-        } catch (cacheErr) {
-          console.error('Erro ao carregar documentos do cache', cacheErr);
-        }
-      }
-    }
-  };
 
   const acceptDocument = async (docId: string): Promise<boolean> => {
     if (!currentUser) return false;
