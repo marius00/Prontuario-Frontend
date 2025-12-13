@@ -35,6 +35,28 @@ export default function SearchPage() {
   const startY = useRef<number>(0);
   const currentY = useRef<number>(0);
 
+  // Function to translate action names from English to Portuguese
+  const translateAction = (action: string): string => {
+    const translations: { [key: string]: string } = {
+      'created': 'Criado',
+      'sent': 'Enviado',
+      'received': 'Recebido',
+      'rejected': 'Rejeitado',
+      'accepted': 'Aceito',
+      'cancelled': 'Cancelado',
+      'dispatched': 'Despachado',
+      'updated': 'Atualizado',
+      'edited': 'Editado',
+      'requested': 'Solicitado',
+      'archived': 'Arquivado',
+      'transferred': 'Transferido',
+      'returned': 'Devolvido'
+    };
+
+    const lowercaseAction = action?.toLowerCase() || '';
+    return translations[lowercaseAction] || action || 'Desconhecido';
+  };
+
   // Load all documents on component mount
   useEffect(() => {
     if (currentUser) {
@@ -277,7 +299,7 @@ export default function SearchPage() {
               title: doc.name || '',
               type: doc.type === 'FICHA' ? 'Ficha' : 'Prontuario',
               patientId: `patient-${doc.id}`,
-              currentSectorId: doc.sector?.name || 'Unknown',
+              currentSectorId: doc.sector?.name || 'Desconhecido',
               status: 'registered',
               createdAt: doc.createdAt ? doc.createdAt : new Date().toISOString(),
               updatedAt: doc.updatedAt ? doc.updatedAt : new Date().toISOString(),
@@ -289,7 +311,7 @@ export default function SearchPage() {
               <div key={doc.id} className="relative">
                 <DocumentCard
                   doc={adaptedDoc}
-                  patientName={doc.sector?.name || 'Unknown'}
+                  patientName={doc.sector?.name || 'Desconhecido'}
                   patientAtendimento={doc.number?.toString() || ''}
                   showMenu
                   sectors={sectors}
@@ -327,13 +349,13 @@ export default function SearchPage() {
               return history.length > 0 ? history.map((event: any, index: number) => (
                 <div key={index} className="p-3 bg-muted rounded border">
                   <div className="flex justify-between items-start mb-1">
-                    <span className="text-sm font-semibold capitalize">{event.action}</span>
+                    <span className="text-sm font-semibold">{translateAction(event.action)}</span>
                     <span className="text-xs text-muted-foreground font-mono">
                       {format(new Date(event.dateTime), 'dd/MM HH:mm', { locale: ptBR })}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Usuário: {event.user} - Setor: {event.sector?.name || 'Unknown'}
+                    Usuário: {event.user} - Setor: {event.sector?.name || 'Desconhecido'}
                   </p>
                   {event.description && (
                     <p className="text-xs text-muted-foreground mt-2 italic">{event.description}</p>

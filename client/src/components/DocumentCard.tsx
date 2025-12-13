@@ -166,7 +166,7 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
           <p className="text-sm font-medium text-foreground">{patientName}</p>
           {getReceivedInfo() && (
             <div className="text-xs text-muted-foreground">
-              Received by {getReceivedInfo()!.sector}, {getReceivedInfo()!.user}, {format(new Date(getReceivedInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
+              Recebido por {getReceivedInfo()!.sector}, {getReceivedInfo()!.user}, {format(new Date(getReceivedInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
             </div>
           )}
           {getSentInfo() && (
