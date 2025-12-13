@@ -4,26 +4,46 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  // @replit
-  // Whitespace-nowrap: Badges should never wrap.
-  "whitespace-nowrap inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" +
-  " hover-elevate ",
+  "whitespace-nowrap inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
         default:
-          // @replit shadow-xs instead of shadow, no hover because we use hover-elevate
-          "border-transparent bg-primary text-primary-foreground shadow-xs",
+          "border-transparent bg-primary text-primary-foreground shadow-sm",
         secondary:
-          // @replit no hover because we use hover-elevate
           "border-transparent bg-secondary text-secondary-foreground",
         destructive:
-          // @replit shadow-xs instead of shadow, no hover because we use hover-elevate
-          "border-transparent bg-destructive text-destructive-foreground shadow-xs",
-          // @replit shadow-xs" - use badge outline variable
-        outline: "text-foreground border [border-color:var(--badge-outline)]",
+          "border-transparent bg-destructive text-destructive-foreground shadow-sm",
+        outline:
+          "text-foreground border border-input",
+      },
+      interactive: {
+        true: "cursor-pointer",
+        false: "",
       },
     },
+    compoundVariants: [
+      {
+        variant: "default",
+        interactive: true,
+        className: "hover:bg-primary/90 hover:shadow-md",
+      },
+      {
+        variant: "secondary",
+        interactive: true,
+        className: "hover:bg-secondary/80 hover:shadow-sm",
+      },
+      {
+        variant: "destructive",
+        interactive: true,
+        className: "hover:bg-destructive/90 hover:shadow-md",
+      },
+      {
+        variant: "outline",
+        interactive: true,
+        className: "hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
+      },
+    ],
     defaultVariants: {
       variant: "default",
     },
@@ -32,11 +52,19 @@ const badgeVariants = cva(
 
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+    VariantProps<typeof badgeVariants> {
+  interactive?: boolean;
+}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
+function Badge({ className, variant, interactive, ...props }: BadgeProps) {
+  // Auto-detect if badge is interactive based on presence of click handlers
+  const isInteractive = interactive ?? !!(props.onClick || props.onMouseDown || props.onPointerDown);
+
   return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+    <div
+      className={cn(badgeVariants({ variant, interactive: isInteractive }), className)}
+      {...props}
+    />
   )
 }
 
