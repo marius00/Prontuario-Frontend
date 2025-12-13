@@ -26,6 +26,7 @@ export default function SearchPage() {
   const [editDocType, setEditDocType] = useState<'Ficha' | 'Prontuario'>('Ficha');
   const [editTitle, setEditTitle] = useState('');
   const [isEditLoading, setIsEditLoading] = useState(false);
+  const [isRequestLoading, setIsRequestLoading] = useState(false);
 
   // Pull-to-refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -79,15 +80,34 @@ export default function SearchPage() {
     return sectors.find(s => s.name === sectorNameOrId || s.name === sectorNameOrId)?.name || sectorNameOrId;
   };
 
-  const handleRequestDocument = () => {
-    if (requestDocId && requestReason) {
-      requestDocument(requestDocId, requestReason);
-      toast({
-        title: "Solicitação Enviada",
-        description: "Sua solicitação foi registrada com sucesso.",
-      });
-      setRequestDocId(null);
-      setRequestReason('');
+  const handleRequestDocument = async () => {
+    if (requestDocId && requestReason && !isRequestLoading) {
+      setIsRequestLoading(true);
+      try {
+        const success = await requestDocument(requestDocId, requestReason);
+        if (success) {
+          toast({
+            title: "Solicitação Enviada",
+            description: "Sua solicitação foi registrada com sucesso.",
+          });
+          setRequestDocId(null);
+          setRequestReason('');
+        } else {
+          toast({
+            title: "Erro",
+            description: "Falha ao enviar solicitação.",
+            variant: "destructive"
+          });
+        }
+      } catch (error: any) {
+        toast({
+          title: "Erro",
+          description: error.message || "Erro ao solicitar documento.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsRequestLoading(false);
+      }
     }
   };
 
@@ -398,10 +418,12 @@ export default function SearchPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRequestDocId(null)}>Cancelar</Button>
-            <Button onClick={handleRequestDocument} disabled={!requestReason}>
+            <Button variant="outline" onClick={() => setRequestDocId(null)} disabled={isRequestLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleRequestDocument} disabled={!requestReason || isRequestLoading}>
               <Send className="mr-2 h-4 w-4" />
-              Enviar Solicitação
+              {isRequestLoading ? 'Enviando...' : 'Enviar Solicitação'}
             </Button>
           </DialogFooter>
         </DialogContent>

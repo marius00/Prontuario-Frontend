@@ -83,7 +83,7 @@ interface AppState {
   getOutgoingPendingDocuments: (sectorId: string) => Document[]; // Docs sent FROM this sector not yet received
   getDocumentHistory: (docId: string) => DocumentEvent[];
   getPatientDocuments: (patientName: string) => { patient: Patient | undefined, docs: Document[] };
-  requestDocument: (docId: string, reason: string) => void;
+  requestDocument: (docId: string, reason: string) => Promise<boolean>;
   addUser: (name: string, sectorId: string, role: 'admin' | 'staff') => Promise<{ success: boolean; password?: string; error?: string }>;
   resetUserPassword: (username: string) => Promise<{ success: boolean; password?: string; error?: string }>;
   resetOwnPassword: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
@@ -950,20 +950,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { patient, docs };
   };
 
-  const requestDocument = (docId: string, reason: string) => {
-    if (!currentUser) return;
+  const requestDocumentImpl = async (docId: string, reason: string): Promise<boolean> => {
+    if (!currentUser) return false;
 
-    const newEvent: DocumentEvent = {
-      id: `e${Date.now()}`,
-      documentId: docId,
-      type: 'created',
-      timestamp: new Date().toISOString(),
-      userId: currentUser.id,
-      sectorId: currentUser.sector.name,
-      metadata: { reason }
-    };
+    try {
+      const mutation = `
+        mutation RequestDocument($id: Int!, $reason: String!) {
+          requestDocument(id: $id, reason: $reason) {
+            success
+          }
+        }
+      `;
 
-    setEvents(prev => [...prev, newEvent]);
+      const result = await graphqlFetch<{ requestDocument: { success: boolean } }>({
+        query: mutation,
+        variables: { id: parseInt(docId), reason }
+      });
+
+      if (result.errors) {
+        // Handle GraphQL errors with validation message priority
+        const firstError = result.errors[0];
+        const errorMessage = (firstError.extensions?.classification === 'VALIDATION' && firstError.message)
+          ? firstError.message
+          : 'Erro ao solicitar documento';
+        throw new Error(errorMessage);
+      }
+
+      return result.data?.requestDocument.success || false;
+    } catch (error) {
+      console.error('Erro ao solicitar documento:', error);
+      throw error;
+    }
   };
 
   const addUser = async (name: string, sectorId: string, role: 'admin' | 'staff'): Promise<{ success: boolean; password?: string; error?: string }> => {
@@ -1456,7 +1473,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getOutgoingPendingDocuments,
         getDocumentHistory,
         getPatientDocuments,
-        requestDocument,
+        requestDocument: requestDocumentImpl,
         addUser,
         resetUserPassword,
         resetOwnPassword,

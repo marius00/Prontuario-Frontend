@@ -1,16 +1,12 @@
 # Protocolo Digital
 
 Missing:
-* still missing history
 * Still missing request document
-* There is no hover effect on buttons, so it feels very broken
-* Notifications
-* 
 * Undo accept document
-* localstorage with delayed sync
-* Hamburger on search should also have edit if you made it, since it won't be on dashboard after a while
-* dashboard should only show recent
-* "require password reset on next login" when creating user.. needs backend + frontend support.
+* localstorage with delayed sync / background sync
+* we sometimes request data twice
+* timestamp based loading for service worker / reduced data size
+
 * Need to go over the repo, lots of minor mistakes made, vars not existing etc.
 
 
