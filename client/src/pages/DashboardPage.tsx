@@ -92,6 +92,18 @@ export default function DashboardPage() {
   const outgoingDocs = dashboardDocuments?.outbox || [];
   const requestDocs = dashboardDocuments?.requests || [];
 
+  // Debug logging for requests
+  React.useEffect(() => {
+    console.log('DashboardPage - dashboardDocuments changed:', {
+      hasData: !!dashboardDocuments,
+      inventory: myDocs.length,
+      inbox: incomingDocs.length,
+      outbox: outgoingDocs.length,
+      requests: requestDocs.length,
+      requestsData: requestDocs
+    });
+  }, [dashboardDocuments, myDocs.length, incomingDocs.length, outgoingDocs.length, requestDocs.length, requestDocs]);
+
   const filterDocs = (docs: any[]) => docs.filter((d: any) => {
     // DashboardDocument has 'name' instead of 'title' and 'number' instead of 'id'
     const searchText = filter.toLowerCase();

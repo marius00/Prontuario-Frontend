@@ -228,11 +228,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (cached && cached.inventory && cached.inbox && cached.outbox) {
           const isStale = now - cached.updatedAt > FIVE_MINUTES_MS;
 
+          console.log('Dashboard data loaded from cache:', {
+            inventory: cached.inventory?.length || 0,
+            inbox: cached.inbox?.length || 0,
+            outbox: cached.outbox?.length || 0,
+            requests: cached.requests?.length || 0,
+            isStale
+          });
+
           // Set cached data immediately
           setDashboardDocuments({
             inventory: cached.inventory,
             inbox: cached.inbox,
-            outbox: cached.outbox
+            outbox: cached.outbox,
+            requests: cached.requests || [] // Always include requests, default to empty array
           });
 
           // If not stale, return early
@@ -335,6 +344,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   description
                 }
                 createdBy
+                createdAt
+                modifiedAt
               }
               reason
               requestedBy
@@ -355,13 +366,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const dashboardData = result.data?.listDocumentsForDashboard;
       if (dashboardData) {
-        setDashboardDocuments(dashboardData);
+        console.log('Dashboard data loaded from API:', {
+          inventory: dashboardData.inventory?.length || 0,
+          inbox: dashboardData.inbox?.length || 0,
+          outbox: dashboardData.outbox?.length || 0,
+          requests: dashboardData.requests?.length || 0
+        });
+
+        // Ensure requests field exists, preserve existing if API doesn't return it
+        const finalData = {
+          ...dashboardData,
+          requests: dashboardData.requests || dashboardDocuments?.requests || []
+        };
+
+        setDashboardDocuments(finalData);
         // Persist in cache with timestamp
         await saveDashboardDocsToCache({
-          inventory: dashboardData.inventory,
-          inbox: dashboardData.inbox,
-          outbox: dashboardData.outbox,
-          requests: dashboardData.requests,
+          inventory: finalData.inventory,
+          inbox: finalData.inbox,
+          outbox: finalData.outbox,
+          requests: finalData.requests,
           updatedAt: Date.now(),
         });
       }
@@ -372,6 +396,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const cached = await loadDashboardDocsFromCache();
           if (cached && cached.inventory && cached.inbox && cached.outbox) {
+            console.log('Using fallback cache data due to API error');
             setDashboardDocuments({
               inventory: cached.inventory,
               inbox: cached.inbox,
@@ -382,6 +407,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } catch (cacheErr) {
           console.error('Erro ao carregar documentos do cache', cacheErr);
         }
+      } else {
+        console.log('API failed but preserving existing dashboard data');
+        // If we already have dashboard data, don't overwrite it with nothing
       }
     }
   };

@@ -353,6 +353,13 @@ async function openDashboardDocsDb(): Promise<IDBDatabase> {
 }
 
 export async function saveDashboardDocsToCache(payload: StoredDashboardDocsPayload): Promise<void> {
+  console.log('Saving dashboard docs to cache:', {
+    inventory: payload.inventory?.length || 0,
+    inbox: payload.inbox?.length || 0,
+    outbox: payload.outbox?.length || 0,
+    requests: payload.requests?.length || 0,
+    updatedAt: payload.updatedAt
+  });
   const db = await openDashboardDocsDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(USER_STORE_NAME, 'readwrite');
@@ -371,7 +378,18 @@ export async function loadDashboardDocsFromCache(): Promise<StoredDashboardDocsP
     const store = tx.objectStore(USER_STORE_NAME);
     const req = store.get(DASHBOARD_DOCS_KEY);
 
-    req.onsuccess = () => resolve(req.result as StoredDashboardDocsPayload | undefined);
+    req.onsuccess = () => {
+      const result = req.result as StoredDashboardDocsPayload | undefined;
+      console.log('Loading dashboard docs from cache:', {
+        hasResult: !!result,
+        inventory: result?.inventory?.length || 0,
+        inbox: result?.inbox?.length || 0,
+        outbox: result?.outbox?.length || 0,
+        requests: result?.requests?.length || 0,
+        updatedAt: result?.updatedAt
+      });
+      resolve(result);
+    };
     req.onerror = () => reject(req.error);
   });
 }

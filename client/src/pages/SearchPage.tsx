@@ -13,7 +13,7 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SearchPage() {
-  const { allDocuments, loadAllDocuments, currentUser, sectors, requestDocument, users, editDocument } = useApp();
+  const { allDocuments, loadAllDocuments, currentUser, sectors, requestDocument, users, editDocument, loadDashboardDocuments } = useApp();
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState<'doc' | 'patient'>('doc');
@@ -86,6 +86,14 @@ export default function SearchPage() {
       try {
         const success = await requestDocument(requestDocId, requestReason);
         if (success) {
+          // Refresh dashboard to show the new request in the requests tab
+          try {
+            await loadDashboardDocuments(true);
+          } catch (dashboardError) {
+            console.error('Error refreshing dashboard after request:', dashboardError);
+            // Don't show error to user since the main operation succeeded
+          }
+
           toast({
             title: "Solicitação Enviada",
             description: "Sua solicitação foi registrada com sucesso.",
