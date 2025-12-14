@@ -18,7 +18,8 @@ import {
   saveAllDocumentsToCache,
   clearAllDocumentsCache,
   updateDocumentInAllDocsCache,
-  addDocumentToAllDocsCache
+  addDocumentToAllDocsCache,
+  mergeDocumentsInAllDocsCache
 } from '@/lib/indexedDb';
 import { graphqlFetch } from '@/lib/graphqlClient';
 import {
@@ -70,7 +71,7 @@ interface AppState {
   loadSectors: (user: User) => Promise<void>;
   loadUsers: (user: User) => Promise<void>;
   loadDashboardDocuments: (forceRefresh?: boolean) => Promise<void>;
-  loadAllDocuments: (forceRefresh?: boolean) => Promise<void>;
+  loadAllDocuments: (forceRefresh?: boolean, userInitiated?: boolean) => Promise<void>;
   registerDocument: (number: number, name: string, type: DocumentType, observations?: string) => Promise<boolean>;
   editDocument: (id: number, number: number, name: string, type: DocumentType, observations?: string) => Promise<boolean>;
   dispatchDocument: (docId: string, targetSectorId: string) => Promise<boolean>;
@@ -353,7 +354,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const loadAllDocuments = async (forceRefresh = false) => {
+  const loadAllDocuments = async (forceRefresh = false, userInitiated = false) => {
     if (!currentUser) return;
 
     try {
@@ -369,17 +370,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // Set cached data immediately
           setAllDocuments(cached.documents);
 
-          // If not stale, return early
-          if (!isStale) {
+          // If not stale and not user-initiated, return early
+          // User-initiated refreshes should always check for updates
+          if (!isStale && !userInitiated) {
+            console.log('loadAllDocuments: Cache is fresh, skipping API call (not user-initiated)');
             return;
+          } else if (!isStale && userInitiated) {
+            console.log('loadAllDocuments: Cache is fresh but user-initiated refresh - checking for updates anyway');
           }
         }
       }
 
       // Load from GraphQL API
+      // Calculate since parameter from existing documents (both in state and cache)
+      let sinceParam: string | null = null;
+      if (!forceRefresh) {
+        let documentsToCheck: any[] = [];
+
+        // Add documents from current state
+        if (allDocuments && allDocuments.length > 0) {
+          documentsToCheck = [...allDocuments];
+        }
+
+        // Also check cached documents if state is empty
+        if (documentsToCheck.length === 0) {
+          const cached = await loadAllDocumentsFromCache();
+          if (cached && cached.documents && cached.documents.length > 0) {
+            documentsToCheck = cached.documents;
+          }
+        }
+
+        // Find latest modifiedAt from all available documents
+        const documentsWithModifiedAt = documentsToCheck.filter(doc => doc.modifiedAt);
+        if (documentsWithModifiedAt.length > 0) {
+          const latestModified = documentsWithModifiedAt.reduce((latest, doc) => {
+            return !latest || doc.modifiedAt > latest ? doc.modifiedAt : latest;
+          }, null as string | null);
+          sinceParam = latestModified;
+          console.log(`loadAllDocuments: Using since parameter: ${sinceParam} (from ${documentsWithModifiedAt.length} documents with modifiedAt)`);
+        } else {
+          console.log(`loadAllDocuments: No since parameter - found ${documentsToCheck.length} documents, ${documentsWithModifiedAt.length} with modifiedAt`);
+        }
+      }
+
       const query = `
-        query ListAllDocuments {
-          listAllDocuments {
+        query ListAllDocuments($since: String) {
+          listAllDocuments(since: $since) {
             id
             number
             name
@@ -400,24 +436,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               description
             }
             createdBy
+            createdAt
+            modifiedAt
           }
         }
       `;
 
+      console.log(`loadAllDocuments: Executing GraphQL query with variables:`, sinceParam ? { since: sinceParam } : {});
       const result = await graphqlFetch<{ listAllDocuments: any[] }>({
         query,
+        variables: sinceParam ? { since: sinceParam } : {}
       });
 
       if (result.errors) {
         throw new Error(result.errors[0]?.message || 'Erro ao carregar todos os documentos');
       }
 
-      const allDocsData = result.data?.listAllDocuments;
-      if (allDocsData) {
-        setAllDocuments(allDocsData);
+      const newDocsData = result.data?.listAllDocuments;
+      if (newDocsData) {
+        let mergedDocuments: any[];
+
+        if (sinceParam && allDocuments && allDocuments.length > 0) {
+          // Merge new documents with existing ones, replacing any with same ID
+          const existingDocs = [...allDocuments];
+          const newDocIds = new Set(newDocsData.map(doc => doc.id));
+
+          // Remove existing documents that are being updated
+          const filteredExistingDocs = existingDocs.filter(doc => !newDocIds.has(doc.id));
+
+          // Combine filtered existing docs with new docs
+          mergedDocuments = [...filteredExistingDocs, ...newDocsData];
+        } else {
+          // Force refresh or no existing data - use new data directly
+          mergedDocuments = newDocsData;
+        }
+
+        setAllDocuments(mergedDocuments);
         // Persist in cache with timestamp
         await saveAllDocumentsToCache({
-          documents: allDocsData,
+          documents: mergedDocuments,
           updatedAt: Date.now(),
         });
       }
@@ -449,8 +506,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           console.error('Background sync failed for dashboard:', err);
         });
 
-        // Refresh all documents cache if needed
-        loadAllDocuments(true).catch(err => {
+        // Refresh all documents cache if needed (use incremental loading)
+        loadAllDocuments(false).catch(err => {
           console.error('Background sync failed for all documents:', err);
         });
       }
@@ -1458,8 +1515,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loadDashboardDocuments: async (forceRefresh = false) => {
           return await loadDashboardDocuments(forceRefresh);
         },
-        loadAllDocuments: async (forceRefresh = false) => {
-          return await loadAllDocuments(forceRefresh);
+        loadAllDocuments: async (forceRefresh = false, userInitiated = false) => {
+          return await loadAllDocuments(forceRefresh, userInitiated);
         },
         registerDocument,
         editDocument,

@@ -460,3 +460,30 @@ export async function addDocumentToAllDocsCache(newDocument: any): Promise<void>
     updatedAt: Date.now()
   });
 }
+
+// Helper function to merge new documents with existing cache, replacing by ID
+export async function mergeDocumentsInAllDocsCache(newDocuments: any[]): Promise<void> {
+  const cached = await loadAllDocumentsFromCache();
+  if (!cached) {
+    // No existing cache, save new documents directly
+    await saveAllDocumentsToCache({
+      documents: newDocuments,
+      updatedAt: Date.now()
+    });
+    return;
+  }
+
+  const existingDocs = [...cached.documents];
+  const newDocIds = new Set(newDocuments.map(doc => doc.id));
+
+  // Remove existing documents that are being updated
+  const filteredExistingDocs = existingDocs.filter(doc => !newDocIds.has(doc.id));
+
+  // Combine filtered existing docs with new docs
+  const mergedDocuments = [...filteredExistingDocs, ...newDocuments];
+
+  await saveAllDocumentsToCache({
+    documents: mergedDocuments,
+    updatedAt: Date.now()
+  });
+}

@@ -83,6 +83,8 @@ export type DashboardDocument = {
   sector?: Sector;
   history: DashboardDocumentHistory[];
   createdBy: string;
+  createdAt: string;
+  modifiedAt: string;
 };
 
 export type DashboardDocuments = {

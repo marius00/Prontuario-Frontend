@@ -8,7 +8,7 @@ Missing:
 * timestamp based loading for service worker / reduced data size
 
 * Need to go over the repo, lots of minor mistakes made, vars not existing etc.
-
+* document.history can be a data loader dgs
 
 How to run:
 nvm install 25.2.1

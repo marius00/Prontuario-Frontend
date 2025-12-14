@@ -190,7 +190,7 @@ export default function SearchPage() {
       setPullDistance(0);
 
       try {
-        await loadAllDocuments(true);
+        await loadAllDocuments(false, true); // User-initiated incremental refresh
         toast({
           title: "Atualizado",
           description: "Dados atualizados com sucesso.",
@@ -215,7 +215,7 @@ export default function SearchPage() {
     setIsRefreshing(true);
 
     try {
-      await loadAllDocuments(true);
+      await loadAllDocuments(false, true); // User-initiated incremental refresh
       toast({
         title: "Atualizado",
         description: "Dados atualizados com sucesso.",
@@ -321,8 +321,8 @@ export default function SearchPage() {
               patientId: `patient-${doc.id}`,
               currentSectorId: doc.sector?.name || 'Desconhecido',
               status: 'registered',
-              createdAt: doc.createdAt ? doc.createdAt : new Date().toISOString(),
-              updatedAt: doc.updatedAt ? doc.updatedAt : new Date().toISOString(),
+              createdAt: doc.createdAt || new Date().toISOString(),
+              updatedAt: doc.modifiedAt || doc.createdAt || new Date().toISOString(),
               createdByUserId: doc.createdBy,
               lastDispatchedBySectorId: doc.lastDispatchedBySectorId || undefined
             };
