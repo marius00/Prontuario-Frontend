@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Sector, Document, Patient, DocumentEvent, DocumentType, DashboardDocuments } from './types';
+import { User, Sector, Document, Patient, DocumentEvent, DocumentType, DashboardDocuments, DocumentRequest } from './types';
 import {
   getUserProfile,
   clearUserProfile,
@@ -96,6 +96,7 @@ interface AppState {
   acceptDocuments: (docIds: string[]) => Promise<boolean>;
   rejectDocumentInbox: (docId: string, reason?: string) => Promise<boolean>;
   cancelSentDocument: (docId: string, description?: string) => Promise<boolean>;
+  cancelRequest: (docId: string, description?: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -311,6 +312,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               }
               createdBy
             }
+            requests {
+              type
+              document {
+                id
+                number
+                name
+                type
+                observations
+                sector {
+                  name
+                  code
+                }
+                history {
+                  action
+                  user
+                  sector {
+                    name
+                    code
+                  }
+                  dateTime
+                  description
+                }
+                createdBy
+              }
+              reason
+              requestedBy
+              requestedAt
+              sector
+            }
           }
         }
       `;
@@ -331,6 +361,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           inventory: dashboardData.inventory,
           inbox: dashboardData.inbox,
           outbox: dashboardData.outbox,
+          requests: dashboardData.requests,
           updatedAt: Date.now(),
         });
       }
@@ -344,7 +375,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setDashboardDocuments({
               inventory: cached.inventory,
               inbox: cached.inbox,
-              outbox: cached.outbox
+              outbox: cached.outbox,
+              requests: cached.requests || []
             });
           }
         } catch (cacheErr) {
@@ -1496,6 +1528,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const cancelRequest = async (docId: string, description?: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    try {
+      const mutation = `mutation CancelDocument($id: Int!, $description: String) { cancelDocument(id: $id, description: $description) { id number name type observations sector { name code } history { action user sector { name code } dateTime description } } }`;
+      const variables = { id: parseInt(docId), description: description || null };
+      const result = await graphqlFetch<{ cancelDocument: any }>({ query: mutation, variables });
+      if (result.errors) throw new Error(result.errors[0]?.message || 'Erro ao cancelar solicitação');
+
+      // Refresh dashboard to update request status
+      await loadDashboardDocuments(true);
+
+      // Also update allDocuments cache
+      if (result.data?.cancelDocument) {
+        try {
+          await updateDocumentInAllDocsCache(result.data.cancelDocument);
+        } catch (err) {
+          console.error('Erro ao atualizar cache de todos os documentos', err);
+        }
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Erro ao cancelar solicitação', err);
+      return false;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -1542,6 +1601,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         acceptDocuments,
         rejectDocumentInbox,
         cancelSentDocument,
+        cancelRequest,
       }}
     >
       {children}

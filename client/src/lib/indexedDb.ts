@@ -29,6 +29,7 @@ interface StoredDashboardDocsPayload {
   inventory: any[];
   inbox: any[];
   outbox: any[];
+  requests: any[];
   updatedAt: number; // epoch ms
 }
 

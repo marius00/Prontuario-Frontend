@@ -87,8 +87,20 @@ export type DashboardDocument = {
   modifiedAt: string;
 };
 
+export type DocumentRequestType = 'SOMEONE_REQUESTED_FROM_YOU' | 'YOU_REQUESTED';
+
+export type DocumentRequest = {
+  type: DocumentRequestType;
+  document: DashboardDocument;
+  reason: string;
+  requestedBy: string;
+  requestedAt: string;
+  sector: string;
+};
+
 export type DashboardDocuments = {
   inventory: DashboardDocument[];
   inbox: DashboardDocument[];
   outbox: DashboardDocument[];
+  requests: DocumentRequest[];
 };

@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import {DocumentStatus} from "@/lib/types.ts";
 
 export default function DashboardPage() {
-  const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users, acceptDocument, acceptDocuments, rejectDocumentInbox, cancelSentDocument } = useApp();
+  const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users, acceptDocument, acceptDocuments, rejectDocumentInbox, cancelSentDocument, cancelRequest } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
   const [selectMode, setSelectMode] = useState(false);
@@ -52,6 +52,10 @@ export default function DashboardPage() {
   const [cancelSendDocId, setCancelSendDocId] = useState<string | null>(null);
   const [cancelSendReason, setCancelSendReason] = useState<string>('');
 
+  // Cancel Request Dialog State
+  const [cancelRequestDocId, setCancelRequestDocId] = useState<string | null>(null);
+  const [cancelRequestReason, setCancelRequestReason] = useState<string>('');
+
   // Edit loading state
   const [isEditLoading, setIsEditLoading] = useState(false);
 
@@ -86,6 +90,7 @@ export default function DashboardPage() {
   const myDocs = dashboardDocuments?.inventory || [];
   const incomingDocs = dashboardDocuments?.inbox || [];
   const outgoingDocs = dashboardDocuments?.outbox || [];
+  const requestDocs = dashboardDocuments?.requests || [];
 
   const filterDocs = (docs: any[]) => docs.filter((d: any) => {
     // DashboardDocument has 'name' instead of 'title' and 'number' instead of 'id'
@@ -101,6 +106,21 @@ export default function DashboardPage() {
   const filteredMyDocs = filterDocs(myDocs);
   const filteredIncoming = filterDocs(incomingDocs);
   const filteredOutgoing = filterDocs(outgoingDocs);
+
+  // Filter requests based on document properties
+  const filteredRequests = requestDocs.filter((req: any) => {
+    const searchText = filter.toLowerCase();
+    const doc = req.document;
+    return (
+      (doc.name && doc.name.toLowerCase().includes(searchText)) ||
+      (doc.number && doc.number.toString().includes(searchText)) ||
+      (doc.observations && doc.observations.toLowerCase().includes(searchText)) ||
+      (doc.type && doc.type.toLowerCase().includes(searchText)) ||
+      (req.reason && req.reason.toLowerCase().includes(searchText)) ||
+      (req.requestedBy && req.requestedBy.toLowerCase().includes(searchText)) ||
+      (req.sector && req.sector.toLowerCase().includes(searchText))
+    );
+  });
 
   const handleDispatch = async () => {
     if (dispatchDocId && targetSectorId) {
@@ -316,6 +336,27 @@ export default function DashboardPage() {
     }
   };
 
+  const handleCancelRequest = async () => {
+    if (cancelRequestDocId) {
+      // Pass undefined if empty, to make it optional
+      const success = await cancelRequest(cancelRequestDocId, cancelRequestReason || undefined);
+      if (success) {
+        toast({
+          title: "Solicitação Cancelada",
+          description: "A solicitação foi cancelada com sucesso.",
+        });
+        setCancelRequestDocId(null);
+        setCancelRequestReason('');
+      } else {
+        toast({
+          title: "Erro ao cancelar solicitação",
+          description: "Não foi possível cancelar a solicitação. Tente novamente.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
   // Pull-to-refresh handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (isRefreshing || window.scrollY > 0) return;
@@ -451,13 +492,21 @@ export default function DashboardPage() {
       </div>
 
       <Tabs defaultValue="inventory" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-4">
+        <TabsList className="grid w-full grid-cols-4 mb-4">
           <TabsTrigger value="inventory" className="text-[10px] sm:text-sm">Inventário ({myDocs.length})</TabsTrigger>
           <TabsTrigger value="incoming" className="relative text-[10px] sm:text-sm">
             Entrada
             {incomingDocs.length > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white animate-pulse">
                 {incomingDocs.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="requests" className="relative text-[10px] sm:text-sm">
+            Solicitações
+            {requestDocs.length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] text-white">
+                {requestDocs.length}
               </span>
             )}
           </TabsTrigger>
@@ -604,6 +653,68 @@ export default function DashboardPage() {
                   onAccept={handleAcceptDocument}
                   onRejectInbox={setRejectInboxDocId}
                 />
+              );
+            })
+          )}
+        </TabsContent>
+
+        <TabsContent value="requests" className="space-y-3">
+          {filteredRequests.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <div className="h-10 w-10 mx-auto mb-2 opacity-20 flex items-center justify-center rounded-full border-2 border-dashed">
+                <Search className="h-5 w-5" />
+              </div>
+              <p>Nenhuma solicitação encontrada.</p>
+            </div>
+          ) : (
+            filteredRequests.map((request: any, index: number) => {
+              const adaptedDoc = adaptDashboardDocToDocument(request.document);
+              const isMyRequest = request.type === 'YOU_REQUESTED';
+
+              return (
+                <div key={`${request.document.id}-${index}`} className="bg-card border rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-medium text-sm">{request.document.name}</h3>
+                        <span className="text-xs bg-muted px-2 py-1 rounded">
+                          {request.document.type}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        <p><strong>Documento:</strong> #{request.document.number}</p>
+                        <p><strong>Solicitado por:</strong> {request.requestedBy}</p>
+                        <p><strong>Setor:</strong> {request.sector}</p>
+                        <p><strong>Data:</strong> {new Date(request.requestedAt).toLocaleDateString('pt-BR')}</p>
+                        {request.reason && (
+                          <p><strong>Motivo:</strong> {request.reason}</p>
+                        )}
+                        {request.document.observations && (
+                          <p><strong>Observações:</strong> {request.document.observations}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      {isMyRequest ? (
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs text-blue-600 font-medium mb-2">Sua solicitação</span>
+                          <button
+                            onClick={() => setCancelRequestDocId(request.document.id.toString())}
+                            className="text-xs text-red-600 hover:text-red-800 underline"
+                          >
+                            Cancelar solicitação
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs text-orange-600 font-medium">Solicitado do seu setor</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               );
             })
           )}
@@ -876,6 +987,34 @@ export default function DashboardPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCancelSendDocId(null)}>Cancelar</Button>
             <Button onClick={handleCancelSend}>
+              Confirmar Cancelamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Request Dialog */}
+      <Dialog open={!!cancelRequestDocId} onOpenChange={(open) => !open && setCancelRequestDocId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancelar Solicitação</DialogTitle>
+            <DialogDescription>
+              Tem certeza de que deseja cancelar esta solicitação? O motivo é opcional.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Motivo do Cancelamento (Opcional)</Label>
+              <Textarea
+                placeholder="ex: Solicitação enviada por engano, Mudança de prioridade..."
+                value={cancelRequestReason}
+                onChange={(e) => setCancelRequestReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelRequestDocId(null)}>Cancelar</Button>
+            <Button onClick={handleCancelRequest}>
               Confirmar Cancelamento
             </Button>
           </DialogFooter>
