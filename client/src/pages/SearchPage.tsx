@@ -66,6 +66,34 @@ export default function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]); // Only run when currentUser changes
 
+  // Periodic refresh to ensure data stays in sync with dashboard
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Set up interval to do full refresh every 2 minutes to catch any missed documents
+    const refreshInterval = setInterval(async () => {
+      try {
+        console.log('SearchPage: Performing periodic full refresh to sync with dashboard');
+        await loadAllDocuments(true);
+      } catch (error) {
+        console.error('SearchPage: Periodic refresh failed:', error);
+      }
+    }, 2 * 60 * 1000); // 2 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, [currentUser, loadAllDocuments]);
+
+  // Debug effect to track data sync between dashboard and search
+  useEffect(() => {
+    if (currentUser && allDocuments) {
+      console.log('SearchPage: Document sync check:', {
+        allDocumentsCount: allDocuments.length,
+        allDocumentIds: allDocuments.map(d => d.id).sort(),
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [currentUser, allDocuments]);
+
   const filteredDocs = (allDocuments || []).filter(d =>
     d.id.toString().toLowerCase().includes(query.toLowerCase()) ||
     d.number.toString().includes(query.toLowerCase()) ||
@@ -198,7 +226,7 @@ export default function SearchPage() {
       setPullDistance(0);
 
       try {
-        await loadAllDocuments(false, true); // User-initiated incremental refresh
+        await loadAllDocuments(true); // Force full refresh to avoid missing documents
         toast({
           title: "Atualizado",
           description: "Dados atualizados com sucesso.",
@@ -223,7 +251,7 @@ export default function SearchPage() {
     setIsRefreshing(true);
 
     try {
-      await loadAllDocuments(false, true); // User-initiated incremental refresh
+      await loadAllDocuments(true); // Force full refresh to avoid missing documents
       toast({
         title: "Atualizado",
         description: "Dados atualizados com sucesso.",
@@ -495,6 +523,7 @@ export default function SearchPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
