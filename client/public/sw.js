@@ -1,10 +1,9 @@
 // Service Worker for Push Notifications and Background Sync
-const CACHE_NAME = 'prontuario-v1';
+const CACHE_NAME = 'prontuario-v2';
 const urlsToCache = [
   '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
-  '/manifest.json'
+  '/manifest.json',
+  '/favicon.ico'
 ];
 
 // Install event - cache resources
@@ -38,15 +37,99 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - serve from cache when offline
+// Fetch event - dynamic caching strategy
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Skip cross-origin requests
+  if (url.origin !== location.origin) {
+    return;
+  }
+
+  // For navigation requests (HTML)
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          // Cache successful responses
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Fallback to cache if network fails
+          return caches.match('/') || caches.match(request);
+        })
+    );
+    return;
+  }
+
+  // For assets (JS, CSS, etc.) - network first, then cache
+  if (request.destination === 'script' ||
+      request.destination === 'style' ||
+      request.destination === 'image' ||
+      url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          // Cache successful responses
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Fallback to cache if network fails
+          return caches.match(request);
+        })
+    );
+    return;
+  }
+
+  // For PWA essentials (manifest, icons) - cache first for performance
+  if (url.pathname === '/manifest.json' ||
+      url.pathname === '/favicon.ico' ||
+      url.pathname.endsWith('.webmanifest')) {
+    event.respondWith(
+      caches.match(request)
+        .then(response => {
+          return response || fetch(request).then(fetchResponse => {
+            if (fetchResponse.ok) {
+              const responseClone = fetchResponse.clone();
+              caches.open(CACHE_NAME).then(cache => {
+                cache.put(request, responseClone);
+              });
+            }
+            return fetchResponse;
+          });
+        })
+    );
+    return;
+  }
+
+  // For other requests, use cache-first strategy
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request);
-      }
-    )
+    caches.match(request)
+      .then(response => {
+        return response || fetch(request).then(fetchResponse => {
+          // Cache successful responses
+          if (fetchResponse.ok) {
+            const responseClone = fetchResponse.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(request, responseClone);
+            });
+          }
+          return fetchResponse;
+        });
+      })
   );
 });
 
