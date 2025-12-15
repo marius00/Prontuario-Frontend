@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import {DocumentStatus} from "@/lib/types.ts";
 
 export default function DashboardPage() {
-  const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users, acceptDocument, acceptDocuments, rejectDocumentInbox, cancelSentDocument, cancelRequest } = useApp();
+  const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users, acceptDocument, acceptDocuments, rejectDocumentInbox, cancelSentDocument, cancelRequest, loadSectors } = useApp();
   const { toast } = useToast();
   const [filter, setFilter] = useState('');
   const [selectMode, setSelectMode] = useState(false);
@@ -63,9 +63,52 @@ export default function DashboardPage() {
   const [undoDocId, setUndoDocId] = useState<string | null>(null);
   const [undoReason, setUndoReason] = useState('');
 
+  // State for sectors refresh loading
+  const [isSectorsLoading, setIsSectorsLoading] = useState(false);
+
   useEffect(() => {
     loadDashboardDocuments();
   }, []); // Only run on mount
+
+  // Enhanced sectors check with loading state
+  const checkAndRefreshSectors = useCallback(async () => {
+    if (!currentUser) return;
+
+    // Check if sectors list is empty or missing
+    if (!sectors || sectors.length === 0) {
+      console.log('DashboardPage: Sectors list is empty, refreshing from API...');
+      setIsSectorsLoading(true);
+      try {
+        await loadSectors(currentUser);
+        console.log('DashboardPage: Sectors refreshed successfully');
+      } catch (error) {
+        console.error('DashboardPage: Failed to refresh sectors:', error);
+        toast({
+          title: "Erro ao carregar setores",
+          description: "Não foi possível carregar a lista de setores. Tente novamente.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsSectorsLoading(false);
+      }
+    }
+  }, [currentUser, sectors, loadSectors, toast]);
+
+  // Check sectors integrity on mount and when sectors change
+  useEffect(() => {
+    checkAndRefreshSectors();
+  }, [checkAndRefreshSectors]);
+
+  // Also check when user tries to open dispatch dialogs (when sectors are actually needed)
+  const handleDispatchWithSectorsCheck = useCallback(async (docId: string) => {
+    await checkAndRefreshSectors();
+    setDispatchDocId(docId);
+  }, [checkAndRefreshSectors]);
+
+  const handleBulkSendWithSectorsCheck = useCallback(async () => {
+    await checkAndRefreshSectors();
+    setShowBulkSendDialog(true);
+  }, [checkAndRefreshSectors]);
 
   // Adapter function to convert DashboardDocument to Document format for DocumentCard
   const adaptDashboardDocToDocument = (dashDoc: any) => ({
@@ -103,6 +146,15 @@ export default function DashboardPage() {
       requestsData: requestDocs
     });
   }, [dashboardDocuments, myDocs.length, incomingDocs.length, outgoingDocs.length, requestDocs.length, requestDocs]);
+
+  // Debug effect to check sectors data
+  React.useEffect(() => {
+    console.log('DashboardPage - sectors data:', {
+      sectorsCount: sectors?.length || 0,
+      currentUserSector: currentUser?.sector?.name,
+      sectors: sectors?.map(s => ({ name: s.name, code: s.code, active: s.active }))
+    });
+  }, [sectors, currentUser]);
 
   const filterDocs = (docs: any[]) => docs.filter((d: any) => {
     // DashboardDocument has 'name' instead of 'title' and 'number' instead of 'id'
@@ -444,6 +496,34 @@ export default function DashboardPage() {
     overscrollBehavior: 'contain',
   } as React.CSSProperties;
 
+  const handleSendDocument = async (docId: string, targetSector: string) => {
+    try {
+      const success = await bulkDispatchDocuments([docId], targetSector);
+      if (success) {
+        // Refresh dashboard to move document from requests to outbox
+        await loadDashboardDocuments(true);
+
+        toast({
+          title: "Documento Enviado",
+          description: `Documento enviado para ${targetSector} com sucesso.`,
+          className: "bg-green-600 text-white border-none"
+        });
+      } else {
+        toast({
+          title: "Erro ao enviar documento",
+          description: "Não foi possível enviar o documento. Tente novamente.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao enviar documento",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div
       ref={containerRef}
@@ -543,7 +623,7 @@ export default function DashboardPage() {
                 </Button>
                 {selectMode && selectedDocs.size > 0 && (
                   <Button
-                    onClick={() => setShowBulkSendDialog(true)}
+                    onClick={handleBulkSendWithSectorsCheck}
                     className="flex-1 bg-green-600 hover:bg-green-700"
                     size="sm"
                     data-testid="button-bulk-send"
@@ -592,7 +672,7 @@ export default function DashboardPage() {
                   selectMode={selectMode}
                   isSelected={selectedDocs.has(adaptedDoc.id)}
                   onSelect={handleSelectDocument}
-                  onDispatch={setDispatchDocId}
+                  onDispatch={handleDispatchWithSectorsCheck}
                   onEdit={handleEdit}
                   onUndo={setUndoDocId}
                 />
@@ -720,8 +800,16 @@ export default function DashboardPage() {
                           </button>
                         </div>
                       ) : (
-                        <div className="flex flex-col items-end">
+                        <div className="flex flex-col items-end gap-2">
                           <span className="text-xs text-orange-600 font-medium">Solicitado do seu setor</span>
+                          <Button
+                            size="sm"
+                            onClick={() => handleSendDocument(request.document.id.toString(), request.sector)}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            <Send className="mr-1 h-3 w-3" />
+                            Enviar Documento
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -876,7 +964,7 @@ export default function DashboardPage() {
                   <SelectValue placeholder="Selecione o setor..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {sectors.filter(s => s.name !== currentUser.sector.name).map(s => (
+                  {sectors.filter(s => s.name !== currentUser?.sector.name && s.active !== false).map(s => (
                     <SelectItem key={s.name} value={s.name}>{s.name} ({s.code})</SelectItem>
                   ))}
                 </SelectContent>

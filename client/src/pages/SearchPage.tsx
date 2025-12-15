@@ -13,7 +13,7 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SearchPage() {
-  const { allDocuments, loadAllDocuments, currentUser, sectors, requestDocument, users, editDocument, loadDashboardDocuments } = useApp();
+  const { allDocuments, loadAllDocuments, currentUser, sectors, requestDocument, users, editDocument, loadDashboardDocuments, loadSectors } = useApp();
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState<'doc' | 'patient'>('doc');
@@ -35,6 +35,9 @@ export default function SearchPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const startY = useRef<number>(0);
   const currentY = useRef<number>(0);
+
+  // State for sectors refresh loading
+  const [isSectorsLoading, setIsSectorsLoading] = useState(false);
 
   // Function to translate action names from English to Portuguese
   const translateAction = (action: string): string => {
@@ -268,6 +271,41 @@ export default function SearchPage() {
     }
   }, [isRefreshing, loadAllDocuments, toast]);
 
+  // Enhanced sectors check with loading state
+  const checkAndRefreshSectors = useCallback(async () => {
+    if (!currentUser) return;
+
+    // Check if sectors list is empty or missing
+    if (!sectors || sectors.length === 0) {
+      console.log('SearchPage: Sectors list is empty, refreshing from API...');
+      setIsSectorsLoading(true);
+      try {
+        await loadSectors(currentUser);
+        console.log('SearchPage: Sectors refreshed successfully');
+      } catch (error) {
+        console.error('SearchPage: Failed to refresh sectors:', error);
+        toast({
+          title: "Erro ao carregar setores",
+          description: "Não foi possível carregar a lista de setores. Tente novamente.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsSectorsLoading(false);
+      }
+    }
+  }, [currentUser, sectors, loadSectors, toast]);
+
+  // Check sectors integrity on mount and when sectors change
+  useEffect(() => {
+    checkAndRefreshSectors();
+  }, [checkAndRefreshSectors]);
+
+  // Also check when user tries to request a document (when user info is actually needed)
+  const handleRequestDocumentWithSectorsCheck = useCallback(async (docId: string) => {
+    await checkAndRefreshSectors();
+    setRequestDocId(docId);
+  }, [checkAndRefreshSectors]);
+
   const containerStyle = {
     touchAction: 'pan-y',
     overscrollBehavior: 'contain',
@@ -373,7 +411,7 @@ export default function SearchPage() {
                   sectors={sectors}
                   users={users}
                   onViewHistory={setHistoryDocId}
-                  onRequest={setRequestDocId}
+                  onRequest={handleRequestDocumentWithSectorsCheck}
                   isCreator={isCreator || undefined}
                   onEdit={isCreator ? handleEdit : undefined}
                 />

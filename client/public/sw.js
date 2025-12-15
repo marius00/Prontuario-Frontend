@@ -205,8 +205,8 @@ self.addEventListener('sync', (event) => {
 
   if (event.tag === 'background-sync') {
     event.waitUntil(
-      // Perform background sync operations here
-      syncData()
+      // Perform enhanced background sync operations with sectors check
+      syncDataWithSectorsCheck()
     );
   }
 });
@@ -230,3 +230,153 @@ async function syncData() {
     throw error;
   }
 }
+
+// Periodic check for sectors data integrity
+async function checkSectorsIntegrity() {
+  try {
+    console.log('Checking sectors integrity...');
+
+    // Open IndexedDB and check if sectors exist
+    const dbName = 'ProntuarioApp';
+    const storeName = 'user';
+    const sectorsKey = 'sectors';
+
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(dbName, 1);
+
+      request.onerror = () => {
+        console.log('Failed to open IndexedDB for sectors check');
+        resolve(false);
+      };
+
+      request.onsuccess = (event) => {
+        const db = event.target.result;
+
+        if (!db.objectStoreNames.contains(storeName)) {
+          console.log('User store does not exist, sectors need refresh');
+          db.close();
+          resolve(false);
+          return;
+        }
+
+        const transaction = db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const getRequest = store.get(sectorsKey);
+
+        getRequest.onsuccess = () => {
+          const sectorsData = getRequest.result;
+
+          if (!sectorsData) {
+            console.log('No sectors data found in cache, triggering refresh');
+            db.close();
+            resolve(false);
+            return;
+          }
+
+          if (!sectorsData.sectors || !Array.isArray(sectorsData.sectors) || sectorsData.sectors.length === 0) {
+            console.log('Sectors list is empty or invalid, triggering refresh');
+            db.close();
+            resolve(false);
+            return;
+          }
+
+          // Check if sectors data is stale (older than 2 hours)
+          const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+          const now = Date.now();
+          const isStale = now - sectorsData.updatedAt > TWO_HOURS_MS;
+
+          if (isStale) {
+            console.log('Sectors data is stale, triggering refresh');
+            db.close();
+            resolve(false);
+            return;
+          }
+
+          console.log(`Sectors integrity check passed: ${sectorsData.sectors.length} sectors found`);
+          db.close();
+          resolve(true);
+        };
+
+        getRequest.onerror = () => {
+          console.log('Error reading sectors from cache');
+          db.close();
+          resolve(false);
+        };
+      };
+    });
+  } catch (error) {
+    console.error('Error during sectors integrity check:', error);
+    return false;
+  }
+}
+
+// Enhanced sync data function with sectors check
+async function syncDataWithSectorsCheck() {
+  try {
+    console.log('Performing enhanced background sync with sectors check...');
+
+    // Check sectors integrity first
+    const sectorsOk = await checkSectorsIntegrity();
+
+    // Send a message to the main thread to sync data
+    const clients = await self.clients.matchAll();
+    clients.forEach(client => {
+      client.postMessage({
+        type: 'BACKGROUND_SYNC',
+        timestamp: Date.now(),
+        sectorsNeedRefresh: !sectorsOk
+      });
+    });
+
+    console.log('Enhanced background sync completed', { sectorsOk });
+  } catch (error) {
+    console.error('Enhanced background sync failed:', error);
+    throw error;
+  }
+}
+
+// Periodic sectors check - runs every 5 minutes
+setInterval(async () => {
+  try {
+    const sectorsOk = await checkSectorsIntegrity();
+
+    if (!sectorsOk) {
+      console.log('Periodic check: Sectors need refresh, notifying app...');
+
+      const clients = await self.clients.matchAll();
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'SECTORS_INTEGRITY_CHECK',
+          sectorsNeedRefresh: true,
+          timestamp: Date.now()
+        });
+      });
+    }
+  } catch (error) {
+    console.error('Periodic sectors check failed:', error);
+  }
+}, 5 * 60 * 1000); // Every 5 minutes
+
+// Page visibility change event - check sectors when user returns to tab
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'PAGE_VISIBLE') {
+    console.log('Page became visible, checking sectors integrity...');
+
+    // Check sectors integrity when page becomes visible
+    checkSectorsIntegrity().then(sectorsOk => {
+      if (!sectorsOk) {
+        console.log('Page visible check: Sectors need refresh');
+
+        // Notify the main thread
+        event.source.postMessage({
+          type: 'SECTORS_INTEGRITY_CHECK',
+          sectorsNeedRefresh: true,
+          timestamp: Date.now(),
+          trigger: 'page-visible'
+        });
+      }
+    }).catch(error => {
+      console.error('Page visible sectors check failed:', error);
+    });
+  }
+});

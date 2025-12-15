@@ -130,40 +130,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const isAdmin = mappedUser.role === 'admin';
           console.log('User role:', mappedUser.role, 'isAdmin:', isAdmin);
 
-          // Load both sectors and users if admin
-          if (isAdmin) {
-            // First try to hydrate sectors from cache
-            try {
-              const cached = await loadSectorsFromCache();
-              const ONE_HOUR_MS = 60 * 60 * 1000;
-              const now = Date.now();
+          // Load sectors for all users (needed for document dispatch)
+          try {
+            const cached = await loadSectorsFromCache();
+            const ONE_HOUR_MS = 60 * 60 * 1000;
+            const now = Date.now();
 
-              if (cached && Array.isArray(cached.sectors)) {
-                const mapped: Sector[] = cached.sectors.map((s) => ({
-                  id: s.name,
-                  name: s.name,
-                  code: s.code,
-                  active: s.active ?? true,
-                }));
-                setSectors(mapped);
+            if (cached && Array.isArray(cached.sectors)) {
+              const mapped: Sector[] = cached.sectors.map((s) => ({
+                id: s.name,
+                name: s.name,
+                code: s.code,
+                active: s.active ?? true,
+              }));
+              setSectors(mapped);
 
-                const isStale = now - cached.updatedAt > ONE_HOUR_MS;
+              const isStale = now - cached.updatedAt > ONE_HOUR_MS;
 
-                if (isStale) {
-                  // Try background refresh; don't block initialization if it fails
-                  refreshSectorsFromApi(mappedUser).catch((err) => {
-                    console.error('Erro ao atualizar setores da API', err);
-                  });
-                }
-              } else {
-                // No cache; load from API immediately
-                console.log('No sectors cache, loading from API...');
-                await refreshSectorsFromApi(mappedUser);
+              if (isStale) {
+                // Try background refresh; don't block initialization if it fails
+                refreshSectorsFromApi(mappedUser).catch((err) => {
+                  console.error('Erro ao atualizar setores da API', err);
+                });
               }
-            } catch (err) {
-              console.error('Erro ao carregar setores do cache', err);
+            } else {
+              // No cache; load from API immediately
+              console.log('No sectors cache, loading from API...');
               await refreshSectorsFromApi(mappedUser);
             }
+          } catch (err) {
+            console.error('Erro ao carregar setores do cache', err);
+            await refreshSectorsFromApi(mappedUser);
+          }
+
+          // Load users only if admin
+          if (isAdmin) {
 
             // Load users from cache/API
             try {
@@ -199,7 +200,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               await refreshUsersFromApi(mappedUser);
             }
           } else {
-            console.log('User is not admin, skipping sectors and users load');
+            console.log('User is not admin, skipping detailed users load');
             // For non-admin users, only show themselves in the users list
             setUsers([mappedUser]);
           }
@@ -579,6 +580,68 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('background-sync', handleBackgroundSync as EventListener);
     };
   }, [currentUser, loadDashboardDocuments, loadAllDocuments]);
+
+  // Listen for service worker messages including sectors integrity checks
+  useEffect(() => {
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      const { type, sectorsNeedRefresh } = event.data;
+
+      if (type === 'BACKGROUND_SYNC' || type === 'SECTORS_INTEGRITY_CHECK') {
+        console.log('Service worker message received:', { type, sectorsNeedRefresh });
+
+        if (currentUser) {
+          // If sectors need refresh, refresh them first
+          if (sectorsNeedRefresh) {
+            console.log('Sectors need refresh, refreshing from API...');
+            refreshSectorsFromApi(currentUser).catch(err => {
+              console.error('Failed to refresh sectors from API:', err);
+            });
+          }
+
+          // Also perform regular background sync operations
+          if (type === 'BACKGROUND_SYNC') {
+            // Refresh dashboard documents in the background
+            loadDashboardDocuments(true).catch(err => {
+              console.error('Background sync failed for dashboard:', err);
+            });
+
+            // Refresh all documents cache if needed (use incremental loading)
+            loadAllDocuments(false).catch(err => {
+              console.error('Background sync failed for all documents:', err);
+            });
+          }
+        }
+      }
+    };
+
+    // Register service worker message listener
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+      };
+    }
+  }, [currentUser, loadDashboardDocuments, loadAllDocuments]);
+
+  // Listen for page visibility changes to trigger sectors check
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        // Page became visible, notify service worker to check sectors
+        navigator.serviceWorker.controller.postMessage({
+          type: 'PAGE_VISIBLE',
+          timestamp: Date.now()
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const refreshSectorsFromApi = async (user: User) => {
     console.log('refreshSectorsFromApi called for user:', user.username);
@@ -1255,7 +1318,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       `;
 
       const result = await graphqlFetch<{ deactivateUser: { success: boolean } }>({
-        query: mutation,
+        query,
         variables: { username },
       });
 
