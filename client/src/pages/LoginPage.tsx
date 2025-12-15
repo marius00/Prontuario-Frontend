@@ -178,7 +178,7 @@ export default function LoginPage() {
           <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
             <HeartPulse className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold">Protocolo Digital</CardTitle>
+          <CardTitle className="text-2xl font-bold">MPROTOCOLO</CardTitle>
           <CardDescription>Sistema de Rastreamento de Documentos</CardDescription>
         </CardHeader>
         <CardContent>

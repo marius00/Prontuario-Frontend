@@ -114,7 +114,7 @@ export default function DashboardPage() {
   const adaptDashboardDocToDocument = (dashDoc: any) => ({
     id: dashDoc.id.toString(),
     title: dashDoc.name,
-    type: dashDoc.type,
+    type: dashDoc.type === 'FICHA' ? 'Ficha' : 'Prontuario',
     patientId: `patient-${dashDoc.id}`, // We'll use a synthetic ID
     currentSectorId: dashDoc.sector?.name || (currentUser?.sector.name || 'Unknown'),
     status: 'registered' as DocumentStatus,

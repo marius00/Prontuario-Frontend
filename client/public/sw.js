@@ -138,7 +138,7 @@ self.addEventListener('push', (event) => {
   console.log('Push notification received:', event);
 
   let notificationData = {
-    title: 'Prontuário',
+    title: 'MPROTOCOLO',
     body: 'Nova notificação disponível',
     icon: '/favicon.ico',
     badge: '/favicon.ico',
