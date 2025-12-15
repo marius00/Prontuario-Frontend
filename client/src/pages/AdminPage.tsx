@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Users, Layers, Plus, Trash2, RotateCcw, Menu, Copy, Check } from 'lucide-react';
 
 export default function AdminPage() {
-  const { users, sectors, addUser, addSector, resetUserPassword, deactivateUser, disableSector } = useApp();
+  const { users, sectors, addUser, addSector, resetUserPassword, deactivateUser, disableSector, currentUser } = useApp();
   const { toast } = useToast();
   
   // User management state
@@ -269,10 +269,15 @@ export default function AdminPage() {
 
           <div className="space-y-3">
             {activeUsers.map(user => (
-              <div key={user.id} className="border rounded-lg p-4 bg-card" data-testid={`card-user-${user.id}`}>
+              <div key={user.id} className={`border rounded-lg p-4 bg-card ${currentUser && user.username === currentUser.username ? 'border-primary bg-primary/5' : ''}`} data-testid={`card-user-${user.id}`}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="font-semibold text-lg">{user.username}</h3>
+                    <h3 className="font-semibold text-lg">
+                      {user.username}
+                      {currentUser && user.username === currentUser.username && (
+                        <span className="ml-2 text-xs bg-primary text-primary-foreground px-2 py-1 rounded">Você</span>
+                      )}
+                    </h3>
                     <p className="text-xs text-muted-foreground">
                       {user.role === 'admin' ? 'Administrador' : 'Equipe'} • Setor: {sectors.find(s => s.name === user.sector.name)?.name}
                     </p>
@@ -293,10 +298,13 @@ export default function AdminPage() {
                       <RotateCcw className="mr-2 h-4 w-4" />
                       Resetar Senha
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDeactivateUser(user.username, user.username)} className="text-destructive focus:text-destructive" data-testid={`menu-deactivate-${user.id}`}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Desativar
-                    </DropdownMenuItem>
+                    {/* Only show deactivate option if it's not the current user */}
+                    {!(currentUser && user.username === currentUser.username) && (
+                      <DropdownMenuItem onClick={() => handleDeactivateUser(user.username, user.username)} className="text-destructive focus:text-destructive" data-testid={`menu-deactivate-${user.id}`}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Desativar
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -312,26 +320,34 @@ export default function AdminPage() {
 
           <div className="space-y-3">
             {activeSectors.map(sector => (
-              <div key={sector.name} className="border rounded-lg p-4 bg-card" data-testid={`card-sector-${sector.name}`}>
+              <div key={sector.name} className={`border rounded-lg p-4 bg-card ${currentUser && sector.name === currentUser.sector.name ? 'border-primary bg-primary/5' : ''}`} data-testid={`card-sector-${sector.name}`}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="font-semibold text-lg">{sector.name}</h3>
+                    <h3 className="font-semibold text-lg">
+                      {sector.name}
+                      {currentUser && sector.name === currentUser.sector.name && (
+                        <span className="ml-2 text-xs bg-primary text-primary-foreground px-2 py-1 rounded">Seu Setor</span>
+                      )}
+                    </h3>
                     <p className="text-xs text-muted-foreground">Código: {sector.code}</p>
                   </div>
                   <span className="text-xs font-mono bg-secondary px-2 py-1 rounded">
                     {sector.code}
                   </span>
                 </div>
-                <Button 
-                  onClick={() => handleDisableSector(sector.name, sector.name)}
-                  variant="destructive" 
-                  size="sm" 
-                  className="w-full"
-                  data-testid={`button-disable-sector-${sector.name}`}
-                >
-                  <Trash2 className="mr-2 h-3 w-3" />
-                  Desativar Setor
-                </Button>
+                {/* Only show disable button if it's not the current user's sector */}
+                {!(currentUser && sector.name === currentUser.sector.name) && (
+                  <Button
+                    onClick={() => handleDisableSector(sector.name, sector.name)}
+                    variant="destructive"
+                    size="sm"
+                    className="w-full"
+                    data-testid={`button-disable-sector-${sector.name}`}
+                  >
+                    <Trash2 className="mr-2 h-3 w-3" />
+                    Desativar Setor
+                  </Button>
+                )}
               </div>
             ))}
           </div>

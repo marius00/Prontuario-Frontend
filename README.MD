@@ -1,7 +1,6 @@
 # MPROTOCOLO
 
 Missing:
-* Still missing request document
 * Undo accept document
 * localstorage with delayed sync / background sync
 * we sometimes request data twice
