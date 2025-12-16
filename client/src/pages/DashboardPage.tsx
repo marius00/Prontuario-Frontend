@@ -117,8 +117,13 @@ export default function DashboardPage() {
     let docType: 'Ficha' | 'Prontuario';
     if (dashDoc.type === 'Ficha' || dashDoc.type === 'Prontuario') {
       docType = dashDoc.type;
+    } else if (dashDoc.type === 'FICHA') {
+      docType = 'Ficha';
+    } else if (dashDoc.type === 'PRONTUARIO') {
+      docType = 'Prontuario';
     } else {
       // For 'Exame' and 'Laudo', default to 'Ficha'
+      console.log("Invalid type: ", dashDoc.type, "defaulting to 'Ficha'");
       docType = 'Ficha';
     }
 

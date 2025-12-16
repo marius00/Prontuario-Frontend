@@ -6,7 +6,8 @@ Missing:
 * * should be possible to deelete documents
 * Need to go over the repo, lots of minor mistakes made, vars not existing etc.
 * document.history can be a data loader dgs
-* ** send document should require a person input
+* ** send document should ALLOW a person input
+* editing documents does not refresh dashboard.. sigh..
 
 How to run:
 nvm install 25.2.1
