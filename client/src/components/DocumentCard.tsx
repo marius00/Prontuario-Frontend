@@ -126,7 +126,7 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
             {doc.intakeAt && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                 <Calendar className="h-3 w-3" />
-                <span>Entrada: {format(new Date(doc.intakeAt), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                <span>Entrada: {format(new Date(doc.intakeAt + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</span>
               </div>
             )}
           </div>
