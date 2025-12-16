@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Search, Inbox, Send, Truck, Upload, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import {DocumentStatus} from "@/lib/types.ts";
+import {DocumentStatus, DashboardDocument, Document} from "@/lib/types.ts";
 
 export default function DashboardPage() {
   const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users, acceptDocument, acceptDocuments, rejectDocumentInbox, cancelSentDocument, cancelRequest, loadSectors } = useApp();
@@ -35,7 +35,8 @@ export default function DashboardPage() {
   const [editNumeroAtendimento, setEditNumeroAtendimento] = useState('');
   const [editDocType, setEditDocType] = useState<'Ficha' | 'Prontuario'>('Ficha');
   const [editTitle, setEditTitle] = useState('');
-  
+  const [editIntakeAt, setEditIntakeAt] = useState('');
+
   // Dispatch Dialog State
   const [dispatchDocId, setDispatchDocId] = useState<string | null>(null);
   const [targetSectorId, setTargetSectorId] = useState<string>('');
@@ -111,21 +112,34 @@ export default function DashboardPage() {
   }, [checkAndRefreshSectors]);
 
   // Adapter function to convert DashboardDocument to Document format for DocumentCard
-  const adaptDashboardDocToDocument = (dashDoc: any) => ({
-    id: dashDoc.id.toString(),
-    title: dashDoc.name,
-    type: dashDoc.type === 'FICHA' ? 'Ficha' : 'Prontuario',
-    patientId: `patient-${dashDoc.id}`, // We'll use a synthetic ID
-    currentSectorId: dashDoc.sector?.name || (currentUser?.sector.name || 'Unknown'),
-    status: 'registered' as DocumentStatus,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    createdByUserId: dashDoc.createdBy,
-    // Add DashboardDocument specific properties for easy access
-    number: dashDoc.number,
-    observations: dashDoc.observations,
-    history: dashDoc.history
-  });
+  const adaptDashboardDocToDocument = (dashDoc: DashboardDocument): Document & { number: number; observations?: string; history: any[] } => {
+    // Map DashboardDocumentType to DocumentType
+    let docType: 'Ficha' | 'Prontuario';
+    if (dashDoc.type === 'Ficha' || dashDoc.type === 'Prontuario') {
+      docType = dashDoc.type;
+    } else {
+      // For 'Exame' and 'Laudo', default to 'Ficha'
+      docType = 'Ficha';
+    }
+
+    return {
+      id: dashDoc.id.toString(),
+      title: dashDoc.name,
+      type: docType,
+      patientId: `patient-${dashDoc.id}`, // We'll use a synthetic ID
+      currentSectorId: dashDoc.sector?.name || (currentUser?.sector.name || 'Unknown'),
+      status: 'registered' as DocumentStatus,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdByUserId: dashDoc.createdBy,
+      intakeAt: dashDoc.intakeAt,
+      lastDispatchedBySectorId: undefined,
+      // Add DashboardDocument specific properties for easy access
+      number: dashDoc.number,
+      observations: dashDoc.observations,
+      history: dashDoc.history
+    };
+  };
 
   if (!currentUser) return null;
 
@@ -251,6 +265,7 @@ export default function DashboardPage() {
     const docType = (dashDoc.type === 'Ficha' || dashDoc.type === 'Prontuario') ? dashDoc.type : 'Ficha';
     setEditDocType(docType); // Document type
     setEditTitle(dashDoc.observations || ''); // Observations/description
+    setEditIntakeAt(dashDoc.intakeAt || ''); // Intake date
   };
 
   const handleSaveEdit = async () => {
@@ -263,7 +278,8 @@ export default function DashboardPage() {
           parseInt(editNumeroAtendimento), // number
           editPatientName, // name
           editDocType, // type
-          editTitle || undefined // observations
+          editTitle || undefined, // observations
+          editIntakeAt || undefined // intakeAt
         );
 
         if (success) {
@@ -277,6 +293,7 @@ export default function DashboardPage() {
           setEditNumeroAtendimento('');
           setEditDocType('Ficha');
           setEditTitle('');
+          setEditIntakeAt('');
         } else {
           toast({
             title: "Erro ao atualizar documento",
@@ -832,6 +849,7 @@ export default function DashboardPage() {
             filteredOutgoing.map(dashDoc => {
               const adaptedDoc = adaptDashboardDocToDocument(dashDoc);
               adaptedDoc.status = 'in-transit';
+
               return (
                 <DocumentCard
                   key={adaptedDoc.id}
@@ -932,6 +950,15 @@ export default function DashboardPage() {
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 placeholder="ex: Raio-X Torax, Paciente: João Silva"
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Data de Entrada (Opcional)</Label>
+              <Input
+                type="date"
+                value={editIntakeAt}
+                onChange={(e) => setEditIntakeAt(e.target.value)}
                 className="h-10"
               />
             </div>

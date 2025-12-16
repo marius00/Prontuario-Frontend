@@ -59,6 +59,7 @@ export type Document = {
   updatedAt: string; // Added
   createdByUserId: string; // Track who created it
   lastDispatchedBySectorId?: string; // Track who sent it last
+  intakeAt?: string; // Date when document was taken in
 };
 
 // New types for dashboard documents from GraphQL
@@ -85,6 +86,7 @@ export type DashboardDocument = {
   createdBy: string;
   createdAt: string;
   modifiedAt: string;
+  intakeAt?: string;
 };
 
 export type DocumentRequestType = 'SOMEONE_REQUESTED_FROM_YOU' | 'YOU_REQUESTED';

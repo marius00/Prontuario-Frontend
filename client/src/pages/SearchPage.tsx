@@ -25,6 +25,7 @@ export default function SearchPage() {
   const [editPatientName, setEditPatientName] = useState('');
   const [editDocType, setEditDocType] = useState<'Ficha' | 'Prontuario'>('Ficha');
   const [editTitle, setEditTitle] = useState('');
+  const [editIntakeAt, setEditIntakeAt] = useState('');
   const [isEditLoading, setIsEditLoading] = useState(false);
   const [isRequestLoading, setIsRequestLoading] = useState(false);
 
@@ -158,6 +159,7 @@ export default function SearchPage() {
     setEditPatientName(doc.name || '');
     setEditDocType(doc.type === 'FICHA' ? 'Ficha' : 'Prontuario');
     setEditTitle(doc.observations || '');
+    setEditIntakeAt(doc.intakeAt || '');
   };
 
   const handleSaveEdit = async () => {
@@ -169,7 +171,8 @@ export default function SearchPage() {
           parseInt(editNumeroAtendimento),
           editPatientName,
           editDocType,
-          editTitle || undefined
+          editTitle || undefined,
+          editIntakeAt || undefined
         );
         if (success) {
           toast({
@@ -182,6 +185,7 @@ export default function SearchPage() {
           setEditNumeroAtendimento('');
           setEditDocType('Ficha');
           setEditTitle('');
+          setEditIntakeAt('');
           await loadAllDocuments(true);
         } else {
           toast({
@@ -547,6 +551,15 @@ export default function SearchPage() {
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 placeholder="ex: Raio-X Torax, Paciente: João Silva"
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Data de Entrada (Opcional)</Label>
+              <Input
+                type="date"
+                value={editIntakeAt}
+                onChange={(e) => setEditIntakeAt(e.target.value)}
                 className="h-10"
               />
             </div>

@@ -16,6 +16,7 @@ interface RegisterForm {
   name: string;
   type: DocumentType;
   observations?: string;
+  intakeAt?: string;
 }
 
 export default function RegisterPage() {
@@ -40,7 +41,8 @@ export default function RegisterPage() {
         parseInt(data.number),
         data.name,
         data.type,
-        data.observations || undefined
+        data.observations || undefined,
+        data.intakeAt || undefined
       );
 
       if (success) {
@@ -130,6 +132,16 @@ export default function RegisterPage() {
                   id="observations"
                   placeholder="ex: Raio-X Torax, Paciente: João Silva, Atendimento: #12345"
                   {...register('observations', { required: false })}
+                  className="h-12 text-lg"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="intakeAt">Data de Entrada (Opcional)</Label>
+                <Input
+                  id="intakeAt"
+                  type="date"
+                  {...register('intakeAt', { required: false })}
                   className="h-12 text-lg"
                 />
               </div>

@@ -72,8 +72,8 @@ interface AppState {
   loadUsers: (user: User) => Promise<void>;
   loadDashboardDocuments: (forceRefresh?: boolean) => Promise<void>;
   loadAllDocuments: (forceRefresh?: boolean, userInitiated?: boolean) => Promise<void>;
-  registerDocument: (number: number, name: string, type: DocumentType, observations?: string) => Promise<boolean>;
-  editDocument: (id: number, number: number, name: string, type: DocumentType, observations?: string) => Promise<boolean>;
+  registerDocument: (number: number, name: string, type: DocumentType, observations?: string, intakeAt?: string) => Promise<boolean>;
+  editDocument: (id: number, number: number, name: string, type: DocumentType, observations?: string, intakeAt?: string) => Promise<boolean>;
   dispatchDocument: (docId: string, targetSectorId: string) => Promise<boolean>;
   cancelDispatch: (docId: string) => void;
   receiveDocument: (docId: string) => void;
@@ -262,6 +262,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               name
               type
               observations
+              intakeAt
               sector {
                 name
                 code
@@ -284,6 +285,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               name
               type
               observations
+              intakeAt
               sector {
                 name
                 code
@@ -306,6 +308,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               name
               type
               observations
+              intakeAt
               sector {
                 name
                 code
@@ -330,6 +333,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 name
                 type
                 observations
+                intakeAt
                 sector {
                   name
                   code
@@ -482,6 +486,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name
             type
             observations
+            intakeAt
             sector {
               name
               code
@@ -827,7 +832,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const registerDocument = async (number: number, name: string, type: DocumentType, observations?: string): Promise<boolean> => {
+  const registerDocument = async (number: number, name: string, type: DocumentType, observations?: string, intakeAt?: string): Promise<boolean> => {
     if (!currentUser) return false;
 
     try {
@@ -842,6 +847,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name
             type
             observations
+            intakeAt
             sector {
               name
               code
@@ -864,7 +870,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         number,
         name,
         type: graphqlType,
-        observations: observations || null
+        observations: observations || null,
+        intakeAt: intakeAt || null
       };
 
       const result = await graphqlFetch<{ createDocument: any }>({
@@ -901,7 +908,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const editDocument = async (id: number, number: number, name: string, type: DocumentType, observations?: string): Promise<boolean> => {
+  const editDocument = async (id: number, number: number, name: string, type: DocumentType, observations?: string, intakeAt?: string): Promise<boolean> => {
     if (!currentUser) return false;
 
     try {
@@ -916,6 +923,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name
             type
             observations
+            intakeAt
             sector {
               name
               code
@@ -939,7 +947,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         number,
         name,
         type: graphqlType,
-        observations: observations || null
+        observations: observations || null,
+        intakeAt: intakeAt || null
       };
 
       const result = await graphqlFetch<{ editDocument: any }>({
@@ -1318,7 +1327,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       `;
 
       const result = await graphqlFetch<{ deactivateUser: { success: boolean } }>({
-        query,
+        query: mutation,
         variables: { username },
       });
 

@@ -3,7 +3,7 @@ import { Document, DocumentEvent, Sector, User } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Truck, CheckCircle, AlertCircle, Undo2, XCircle, Edit, Menu } from 'lucide-react';
+import { Truck, CheckCircle, AlertCircle, Undo2, XCircle, Edit, Menu, Calendar } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -123,6 +123,12 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
               </CardTitle>
             </div>
             <h3 className="font-semibold text-lg leading-tight">{doc.title || 'Sem Título'}</h3>
+            {doc.intakeAt && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                <Calendar className="h-3 w-3" />
+                <span>Entrada: {format(new Date(doc.intakeAt), 'dd/MM/yyyy', { locale: ptBR })}</span>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex flex-col items-end gap-2 shrink-0">
