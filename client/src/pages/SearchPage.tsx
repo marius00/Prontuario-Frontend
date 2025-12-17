@@ -13,7 +13,7 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SearchPage() {
-  const { allDocuments, loadAllDocuments, currentUser, sectors, requestDocument, users, editDocument, loadDashboardDocuments, loadSectors } = useApp();
+  const { allDocuments, loadAllDocuments, currentUser, sectors, requestDocument, users, editDocument, loadDashboardDocuments, loadSectors, deleteDocument } = useApp();
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState<'doc' | 'patient'>('doc');
@@ -28,6 +28,8 @@ export default function SearchPage() {
   const [editIntakeAt, setEditIntakeAt] = useState('');
   const [isEditLoading, setIsEditLoading] = useState(false);
   const [isRequestLoading, setIsRequestLoading] = useState(false);
+  const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
+  const [isDeleteLoading, setIsDeleteLoading] = useState(false);
 
   // Pull-to-refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -203,6 +205,43 @@ export default function SearchPage() {
       } finally {
         setIsEditLoading(false);
       }
+    }
+  };
+
+  // Handler for deleting a document
+  const handleDeleteDocument = async () => {
+    if (!deleteDocId) return;
+    setIsDeleteLoading(true);
+    try {
+      // Use the correct deleteDocument from useApp
+      const success = await deleteDocument(parseInt(deleteDocId));
+      if (success) {
+        toast({
+          title: "Documento excluído",
+          description: "O documento foi removido com sucesso.",
+          className: "bg-green-600 text-white border-none"
+        });
+        // Remove from local state without refetch
+        if (Array.isArray(allDocuments)) {
+          const idx = allDocuments.findIndex(d => d.id.toString() === deleteDocId);
+          if (idx !== -1) allDocuments.splice(idx, 1);
+        }
+      } else {
+        toast({
+          title: "Erro ao excluir",
+          description: "Não foi possível excluir o documento.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao excluir",
+        description: (error as any)?.message || "Ocorreu um erro inesperado.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleteLoading(false);
+      setDeleteDocId(null);
     }
   };
 
@@ -405,6 +444,7 @@ export default function SearchPage() {
               lastDispatchedBySectorId: doc.lastDispatchedBySectorId || undefined
             };
             const isCreator = currentUser && doc.createdBy === currentUser.username;
+            const isAdmin = currentUser && currentUser.role.toLowerCase() === 'admin';
             return (
               <div key={doc.id} className="relative">
                 <DocumentCard
@@ -418,6 +458,8 @@ export default function SearchPage() {
                   onRequest={handleRequestDocumentWithSectorsCheck}
                   isCreator={isCreator || undefined}
                   onEdit={isCreator ? handleEdit : undefined}
+                  isAdmin={isAdmin || undefined}
+                  onDelete={isAdmin ? () => setDeleteDocId(doc.id.toString()) : undefined}
                 />
               </div>
             );
@@ -570,6 +612,26 @@ export default function SearchPage() {
             </Button>
             <Button onClick={handleSaveEdit} disabled={!editPatientName || !editNumeroAtendimento || isEditLoading}>
               {isEditLoading ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Document Dialog */}
+      <Dialog open={!!deleteDocId} onOpenChange={open => !open && setDeleteDocId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir Documento</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir este documento? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDocId(null)} disabled={isDeleteLoading}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteDocument} disabled={isDeleteLoading}>
+              {isDeleteLoading ? "Excluindo..." : "Excluir"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -63,7 +63,7 @@ export type Document = {
 };
 
 // New types for dashboard documents from GraphQL
-export type DashboardDocumentType = 'Ficha' | 'Prontuario' | 'Exame' | 'Laudo';
+export type DashboardDocumentType = 'Ficha' | 'Prontuario' | 'PRONTUARIO' | 'FICHA';
 
 export type DocumentActionEnum = 'CREATED' | 'SENT' | 'RECEIVED' | 'REJECTED' | 'REQUESTED';
 

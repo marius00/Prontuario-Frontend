@@ -29,7 +29,9 @@ interface DocumentCardProps {
   onEdit?: (id: string) => void;
   onViewHistory?: (id: string) => void;
   onRequest?: (id: string) => void;
+  onDelete?: (id: string) => void;
   onUndo?: (id: string) => void;
+  isAdmin?: boolean;
   onCancelDispatch?: (id: string) => void;
   showInboxActions?: boolean;
   onAccept?: (id: string) => void;
@@ -37,7 +39,7 @@ interface DocumentCardProps {
   onCancelSend?: (id: string) => void;
 }
 
-export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], users = [], selectMode, isSelected, onSelect, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onUndo, onCancelDispatch, showInboxActions, onAccept, onRejectInbox, onCancelSend }: DocumentCardProps) {
+export function DocumentCard({ doc, patientName, patientAtendimento, showActions, isCreator, showMenu, sectors = [], events = [], users = [], selectMode, isSelected, onSelect, onDispatch, onReceive, onReject, onEdit, onViewHistory, onRequest, onDelete, onUndo, onCancelDispatch, showInboxActions, onAccept, onRejectInbox, onCancelSend, isAdmin }: DocumentCardProps) {
   const getSectorName = (sectorId: string) => {
     return sectors.find(s => s.name === sectorId)?.name || sectorId;
   };
@@ -139,7 +141,7 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
             </Button>
           )}
           {statusBadges[doc.status]}
-          {showMenu && (onViewHistory || onRequest || (isCreator && onEdit)) && (
+          {showMenu && (onViewHistory || onRequest || (isCreator && onEdit) || (isAdmin && onDelete)) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="shrink-0 h-7 w-7 text-muted-foreground hover:text-foreground">
@@ -160,6 +162,14 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
                 {isCreator && onEdit && (
                   <DropdownMenuItem onClick={() => onEdit(doc.id)}>
                     Editar
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && onDelete && (
+                  <DropdownMenuItem
+                    onClick={() => onDelete(doc.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    Deletar
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

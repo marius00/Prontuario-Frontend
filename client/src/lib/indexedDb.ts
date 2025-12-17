@@ -480,6 +480,35 @@ export async function addDocumentToAllDocsCache(newDocument: any): Promise<void>
   });
 }
 
+// Helper function to remove a document from the all documents cache
+export async function removeDocumentFromAllDocsCache(documentId: number): Promise<void> {
+  const cached = await loadAllDocumentsFromCache();
+  if (!cached) return;
+
+  const updatedDocuments = cached.documents.filter(doc => doc.id !== documentId);
+
+  await saveAllDocumentsToCache({
+    documents: updatedDocuments,
+    updatedAt: Date.now()
+  });
+}
+
+// Helper function to remove a document from the dashboard cache
+export async function removeDocumentFromDashboardCache(documentId: number): Promise<void> {
+  const cached = await loadDashboardDocsFromCache();
+  if (!cached) return;
+
+  const updatedDashboardDocs = {
+    inventory: cached.inventory.filter(doc => doc.id !== documentId),
+    inbox: cached.inbox.filter(doc => doc.id !== documentId),
+    outbox: cached.outbox.filter(doc => doc.id !== documentId),
+    requests: cached.requests.filter(req => req.document.id !== documentId),
+    updatedAt: Date.now()
+  };
+
+  await saveDashboardDocsToCache(updatedDashboardDocs);
+}
+
 // Helper function to merge new documents with existing cache, replacing by ID
 export async function mergeDocumentsInAllDocsCache(newDocuments: any[]): Promise<void> {
   const cached = await loadAllDocumentsFromCache();

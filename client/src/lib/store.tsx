@@ -19,7 +19,9 @@ import {
   clearAllDocumentsCache,
   updateDocumentInAllDocsCache,
   addDocumentToAllDocsCache,
-  mergeDocumentsInAllDocsCache
+  mergeDocumentsInAllDocsCache,
+  removeDocumentFromAllDocsCache,
+  removeDocumentFromDashboardCache
 } from '@/lib/indexedDb';
 import { graphqlFetch } from '@/lib/graphqlClient';
 import {
@@ -74,6 +76,7 @@ interface AppState {
   loadAllDocuments: (forceRefresh?: boolean, userInitiated?: boolean) => Promise<void>;
   registerDocument: (number: number, name: string, type: DocumentType, observations?: string, intakeAt?: string) => Promise<boolean>;
   editDocument: (id: number, number: number, name: string, type: DocumentType, observations?: string, intakeAt?: string) => Promise<boolean>;
+  deleteDocument: (id: number) => Promise<boolean>;
   dispatchDocument: (docId: string, targetSectorId: string) => Promise<boolean>;
   cancelDispatch: (docId: string) => void;
   receiveDocument: (docId: string) => void;
@@ -127,7 +130,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setCurrentUser(mappedUser);
           setUsers([mappedUser]);
 
-          const isAdmin = mappedUser.role === 'admin';
+          const isAdmin = mappedUser.role.toLowerCase() === 'admin';
           console.log('User role:', mappedUser.role, 'isAdmin:', isAdmin);
 
           // Load sectors for all users (needed for document dispatch)
@@ -979,6 +982,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deleteDocument = async (id: number): Promise<boolean> => {
+    if (!currentUser) return false;
+
+    try {
+      const mutation = `
+        mutation DeleteDocument($id: Int!) {
+          deleteDocument(id: $id) {
+            success
+          }
+        }
+      `;
+
+      const result = await graphqlFetch<{ deleteDocument: { success: boolean } }>({
+        query: mutation,
+        variables: { id }
+      });
+
+      if (result.errors) {
+        const firstError = result.errors[0];
+        if (firstError.extensions?.classification === 'VALIDATION') {
+          throw new Error(firstError.message);
+        } else {
+          throw new Error(firstError.message || 'Erro ao deletar documento');
+        }
+      }
+
+      if (!result.data?.deleteDocument?.success) {
+        throw new Error('Erro ao deletar documento');
+      }
+
+      // Remove from dashboard documents cache
+      try {
+        await removeDocumentFromDashboardCache(id);
+      } catch (err) {
+        console.error('Erro ao remover documento do cache do dashboard', err);
+      }
+
+      // Remove from allDocuments cache
+      try {
+        await removeDocumentFromAllDocsCache(id);
+      } catch (err) {
+        console.error('Erro ao remover documento do cache de todos os documentos', err);
+      }
+
+      return true;
+    } catch (err: any) {
+      // Attach error message for UI
+      (err as any).uiMessage = err.message || 'Erro ao deletar documento';
+      throw err;
+    }
+  };
+
   async function sendDocumentsViaGraphQL(docIds: string[], targetSectorId: string, currentUser: User | null) {
     if (!currentUser || docIds.length === 0) return false;
     const mutation = `mutation SendDocument($documents: [Int!]!, $sector: String!) { sendDocument(documents: $documents, sector: $sector) { success } }`;
@@ -1679,6 +1734,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         },
         registerDocument,
         editDocument,
+        deleteDocument,
         dispatchDocument,
         cancelDispatch,
         receiveDocument,
