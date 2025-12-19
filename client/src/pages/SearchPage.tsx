@@ -438,6 +438,7 @@ export default function SearchPage() {
               patientId: `patient-${doc.id}`,
               currentSectorId: doc.sector?.name || 'Desconhecido',
               status: 'registered',
+              intakeAt: doc.intakeAt || undefined,
               createdAt: doc.createdAt || new Date().toISOString(),
               updatedAt: doc.modifiedAt || doc.createdAt || new Date().toISOString(),
               createdByUserId: doc.createdBy,
