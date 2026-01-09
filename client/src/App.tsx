@@ -10,10 +10,50 @@ import SearchPage from "@/pages/SearchPage";
 import AdminPage from "@/pages/AdminPage";
 import NotFound from "@/pages/not-found";
 import { Toaster } from "@/components/ui/toaster";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { registerServiceWorker } from "@/lib/pushNotifications";
 import "./index.css";
 
 const queryClient = new QueryClient();
+
+// Permission Denied Modal component
+function PermissionDeniedModal() {
+  const { showPermissionDeniedModal, logout } = useApp();
+  const [, setLocation] = useLocation();
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  // Sync internal state with store state
+  React.useEffect(() => {
+    if (showPermissionDeniedModal) {
+      setIsOpen(true);
+    }
+  }, [showPermissionDeniedModal]);
+
+  const handleLogout = async () => {
+    setIsOpen(false);
+    await logout();
+    setLocation("/login");
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={() => {}}>
+      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle>Sessão Expirada</DialogTitle>
+          <DialogDescription>
+            Sua sessão expirou ou você não tem permissão para acessar este recurso. Por favor, faça login novamente.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="mt-4">
+          <Button onClick={handleLogout} className="w-full">
+            Fazer Login Novamente
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // Authentication guard component
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -106,6 +146,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AppProvider>
         <AppRoutes />
+        <PermissionDeniedModal />
         <Toaster />
       </AppProvider>
     </QueryClientProvider>

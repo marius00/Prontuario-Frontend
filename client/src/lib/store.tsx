@@ -23,7 +23,7 @@ import {
   removeDocumentFromAllDocsCache,
   removeDocumentFromDashboardCache
 } from '@/lib/indexedDb';
-import { graphqlFetch } from '@/lib/graphqlClient';
+import { graphqlFetch, setPermissionDeniedHandler } from '@/lib/graphqlClient';
 import {
   setupPushNotifications,
   cleanupPushNotifications,
@@ -68,6 +68,8 @@ interface AppState {
   patients: Patient[];
   events: DocumentEvent[];
   users: User[]; // For now this can represent only the currently logged in user in an array
+  showPermissionDeniedModal: boolean;
+  triggerPermissionDenied: () => void;
   login: (user: User) => Promise<void>;
   logout: () => Promise<void>;
   loadSectors: (user: User) => Promise<void>;
@@ -109,11 +111,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [showPermissionDeniedModal, setShowPermissionDeniedModal] = useState(false);
   const [documents, setDocuments] = useState<Document[]>(MOCK_DOCS);
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [events, setEvents] = useState<DocumentEvent[]>(MOCK_EVENTS);
   const [dashboardDocuments, setDashboardDocuments] = useState<DashboardDocuments | null>(null);
   const [allDocuments, setAllDocuments] = useState<any[] | null>(null);
+
+  // Register the permission denied handler for GraphQL calls
+  useEffect(() => {
+    setPermissionDeniedHandler(() => {
+      setShowPermissionDeniedModal(true);
+    });
+  }, []);
 
   useEffect(() => {
     const loadUserAndSectorsFromDb = async () => {
@@ -1741,6 +1751,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const triggerPermissionDenied = () => {
+    setShowPermissionDeniedModal(true);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -1753,6 +1767,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         patients,
         events,
         users,
+        showPermissionDeniedModal,
+        triggerPermissionDenied,
         login,
         logout,
         loadSectors: refreshSectorsFromApi,
