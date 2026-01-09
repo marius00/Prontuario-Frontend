@@ -189,7 +189,7 @@ export default function LoginPage() {
                 <SelectTrigger id="user" className="h-12">
                   <SelectValue placeholder={loadingUsers ? 'Carregando usuários...' : 'Selecione um usuário...'} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" sideOffset={4} align="start">
                   {users.map((user) => (
                     <SelectItem key={user.id} value={String(user.id)}>
                       <div className="flex items-center gap-2">
