@@ -184,7 +184,9 @@ export default function DashboardPage() {
       (d.name && d.name.toLowerCase().includes(searchText)) ||
       (d.number && d.number.toString().includes(searchText)) ||
       (d.observations && d.observations.toLowerCase().includes(searchText)) ||
-      (d.type && d.type.toLowerCase().includes(searchText))
+      (d.type && d.type.toLowerCase().includes(searchText)) ||
+      (d.sector?.name && d.sector.name.toLowerCase().includes(searchText)) ||
+      (d.sector?.code && d.sector.code.toLowerCase().includes(searchText))
     );
   });
 
@@ -202,6 +204,8 @@ export default function DashboardPage() {
       (doc.number && doc.number.toString().includes(searchText)) ||
       (doc.observations && doc.observations.toLowerCase().includes(searchText)) ||
       (doc.type && doc.type.toLowerCase().includes(searchText)) ||
+      (doc.sector?.name && doc.sector.name.toLowerCase().includes(searchText)) ||
+      (doc.sector?.code && doc.sector.code.toLowerCase().includes(searchText)) ||
       (req.reason && req.reason.toLowerCase().includes(searchText)) ||
       (req.requestedBy && req.requestedBy.toLowerCase().includes(searchText)) ||
       (req.sector && req.sector.toLowerCase().includes(searchText))
