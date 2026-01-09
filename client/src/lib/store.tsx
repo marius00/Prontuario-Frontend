@@ -237,6 +237,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             inbox: cached.inbox?.length || 0,
             outbox: cached.outbox?.length || 0,
             requests: cached.requests?.length || 0,
+            history: cached.history?.length || 0,
             isStale
           });
 
@@ -245,7 +246,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             inventory: cached.inventory,
             inbox: cached.inbox,
             outbox: cached.outbox,
-            requests: cached.requests || [] // Always include requests, default to empty array
+            requests: cached.requests || [], // Always include requests, default to empty array
+            history: cached.history || [] // Always include history, default to empty array
           });
 
           // If not stale, return early
@@ -360,6 +362,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               requestedAt
               sector
             }
+            history {
+              id
+              number
+              name
+              type
+              observations
+              intakeAt
+              sector {
+                name
+                code
+              }
+              history {
+                action
+                user
+                sector {
+                  name
+                  code
+                }
+                dateTime
+                description
+              }
+              createdBy
+              createdAt
+              modifiedAt
+            }
           }
         }
       `;
@@ -378,13 +405,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           inventory: dashboardData.inventory?.length || 0,
           inbox: dashboardData.inbox?.length || 0,
           outbox: dashboardData.outbox?.length || 0,
-          requests: dashboardData.requests?.length || 0
+          requests: dashboardData.requests?.length || 0,
+          history: dashboardData.history?.length || 0
         });
 
-        // Ensure requests field exists, preserve existing if API doesn't return it
+        // Ensure requests and history fields exist, preserve existing if API doesn't return them
         const finalData = {
           ...dashboardData,
-          requests: dashboardData.requests || dashboardDocuments?.requests || []
+          requests: dashboardData.requests || dashboardDocuments?.requests || [],
+          history: dashboardData.history || dashboardDocuments?.history || []
         };
 
         setDashboardDocuments(finalData);
@@ -394,6 +423,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           inbox: finalData.inbox,
           outbox: finalData.outbox,
           requests: finalData.requests,
+          history: finalData.history,
           updatedAt: Date.now(),
         });
       }
@@ -409,7 +439,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               inventory: cached.inventory,
               inbox: cached.inbox,
               outbox: cached.outbox,
-              requests: cached.requests || []
+              requests: cached.requests || [],
+              history: cached.history || []
             });
           }
         } catch (cacheErr) {

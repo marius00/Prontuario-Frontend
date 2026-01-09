@@ -175,13 +175,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </Dialog>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 container max-w-md mx-auto">
+      <main className="flex-1 p-4 container max-w-md min-[600px]:max-w-[540px] mx-auto">
         {children}
       </main>
 
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 border-t bg-card z-50 pb-safe">
-        <div className="flex items-center justify-around h-16 max-w-md mx-auto">
+        <div className="flex items-center justify-around h-16 max-w-md min-[600px]:max-w-[540px] mx-auto">
           <Link to="/" className={cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", location === '/' ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
             <LayoutDashboard className="h-6 w-6" />
             <span className="text-[10px] font-medium">Painel</span>

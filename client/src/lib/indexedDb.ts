@@ -30,6 +30,7 @@ interface StoredDashboardDocsPayload {
   inbox: any[];
   outbox: any[];
   requests: any[];
+  history: any[];
   updatedAt: number; // epoch ms
 }
 
@@ -358,6 +359,7 @@ export async function saveDashboardDocsToCache(payload: StoredDashboardDocsPaylo
     inbox: payload.inbox?.length || 0,
     outbox: payload.outbox?.length || 0,
     requests: payload.requests?.length || 0,
+    history: payload.history?.length || 0,
     updatedAt: payload.updatedAt
   });
   const db = await openDashboardDocsDb();
@@ -503,6 +505,7 @@ export async function removeDocumentFromDashboardCache(documentId: number): Prom
     inbox: cached.inbox.filter(doc => doc.id !== documentId),
     outbox: cached.outbox.filter(doc => doc.id !== documentId),
     requests: cached.requests.filter(req => req.document.id !== documentId),
+    history: (cached.history || []).filter(doc => doc.id !== documentId),
     updatedAt: Date.now()
   };
 

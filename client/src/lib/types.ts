@@ -105,4 +105,5 @@ export type DashboardDocuments = {
   inbox: DashboardDocument[];
   outbox: DashboardDocument[];
   requests: DocumentRequest[];
+  history: DashboardDocument[];
 };

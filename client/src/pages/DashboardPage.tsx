@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Inbox, Send, Truck, Upload, RefreshCw } from 'lucide-react';
+import { Search, Inbox, Send, Truck, Upload, RefreshCw, Archive, History, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {DocumentStatus, DashboardDocument, Document} from "@/lib/types.ts";
 
@@ -153,6 +153,7 @@ export default function DashboardPage() {
   const incomingDocs = dashboardDocuments?.inbox || [];
   const outgoingDocs = dashboardDocuments?.outbox || [];
   const requestDocs = dashboardDocuments?.requests || [];
+  const historyDocs = dashboardDocuments?.history || [];
 
   // Debug logging for requests
   React.useEffect(() => {
@@ -162,9 +163,10 @@ export default function DashboardPage() {
       inbox: incomingDocs.length,
       outbox: outgoingDocs.length,
       requests: requestDocs.length,
+      history: historyDocs.length,
       requestsData: requestDocs
     });
-  }, [dashboardDocuments, myDocs.length, incomingDocs.length, outgoingDocs.length, requestDocs.length, requestDocs]);
+  }, [dashboardDocuments, myDocs.length, incomingDocs.length, outgoingDocs.length, requestDocs.length, historyDocs.length, requestDocs]);
 
   // Debug effect to check sectors data
   React.useEffect(() => {
@@ -189,6 +191,7 @@ export default function DashboardPage() {
   const filteredMyDocs = filterDocs(myDocs);
   const filteredIncoming = filterDocs(incomingDocs);
   const filteredOutgoing = filterDocs(outgoingDocs);
+  const filteredHistory = filterDocs(historyDocs);
 
   // Filter requests based on document properties
   const filteredRequests = requestDocs.filter((req: any) => {
@@ -606,25 +609,46 @@ export default function DashboardPage() {
       </div>
 
       <Tabs defaultValue="inventory" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-4">
-          <TabsTrigger value="inventory" className="text-[10px] sm:text-sm">Inventário ({myDocs.length})</TabsTrigger>
-          <TabsTrigger value="incoming" className="relative text-[10px] sm:text-sm">
-            Entrada
+        <TabsList className="grid w-full grid-cols-5 mb-4">
+          <TabsTrigger value="inventory" className="text-[10px] min-[600px]:text-sm relative">
+            <Archive className="h-4 w-4 min-[600px]:hidden" />
+            <span className="hidden min-[600px]:inline">Inventário ({myDocs.length})</span>
+            <span className="min-[600px]:hidden absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[10px]">
+              {myDocs.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="incoming" className="relative text-[10px] min-[600px]:text-sm">
+            <Inbox className="h-4 w-4 min-[600px]:hidden" />
+            <span className="hidden min-[600px]:inline">Entrada</span>
             {incomingDocs.length > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white animate-pulse">
                 {incomingDocs.length}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="requests" className="relative text-[10px] sm:text-sm">
-            Solicitações
+          <TabsTrigger value="requests" className="relative text-[10px] min-[600px]:text-sm">
+            <MessageSquare className="h-4 w-4 min-[600px]:hidden" />
+            <span className="hidden min-[600px]:inline">Solicitações</span>
             {requestDocs.length > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] text-white">
                 {requestDocs.length}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="outgoing" className="text-[10px] sm:text-sm">Enviados ({outgoingDocs.length})</TabsTrigger>
+          <TabsTrigger value="outgoing" className="text-[10px] min-[600px]:text-sm relative">
+            <Send className="h-4 w-4 min-[600px]:hidden" />
+            <span className="hidden min-[600px]:inline">Enviados ({outgoingDocs.length})</span>
+            <span className="min-[600px]:hidden absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[10px]">
+              {outgoingDocs.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="text-[10px] min-[600px]:text-sm relative">
+            <History className="h-4 w-4 min-[600px]:hidden" />
+            <span className="hidden min-[600px]:inline">Histórico ({historyDocs.length})</span>
+            <span className="min-[600px]:hidden absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[10px]">
+              {historyDocs.length}
+            </span>
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="inventory" className="space-y-3">
@@ -866,6 +890,34 @@ export default function DashboardPage() {
                   events={events}
                   users={users}
                   onCancelSend={setCancelSendDocId}
+                />
+              );
+            })
+          )}
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-3">
+          {filteredHistory.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <div className="h-10 w-10 mx-auto mb-2 opacity-20 flex items-center justify-center rounded-full border-2 border-dashed">
+                <Search className="h-5 w-5" />
+              </div>
+              <p>Nenhum documento no histórico.</p>
+            </div>
+          ) : (
+            filteredHistory.map(dashDoc => {
+              const adaptedDoc = adaptDashboardDocToDocument(dashDoc);
+
+              return (
+                <DocumentCard
+                  key={adaptedDoc.id}
+                  doc={adaptedDoc}
+                  patientName={dashDoc.sector?.name || (currentUser?.sector.name || 'Unknown')}
+                  patientAtendimento={dashDoc.number?.toString() || ''}
+                  showActions={false}
+                  sectors={sectors}
+                  events={events}
+                  users={users}
                 />
               );
             })
