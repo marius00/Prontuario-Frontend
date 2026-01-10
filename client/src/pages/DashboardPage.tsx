@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Inbox, Send, Truck, Upload, RefreshCw, Archive, History, MessageSquare } from 'lucide-react';
+import { Search, Inbox, Send, Truck, Upload, RefreshCw, Archive, History, MessageSquare, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getAuthToken } from '@/lib/indexedDb';
 import {DocumentStatus, DashboardDocument, Document} from "@/lib/types.ts";
 
 export default function DashboardPage() {
@@ -66,6 +67,58 @@ export default function DashboardPage() {
 
   // State for sectors refresh loading
   const [isSectorsLoading, setIsSectorsLoading] = useState(false);
+
+  // State for history export download
+  const [isDownloadingHistory, setIsDownloadingHistory] = useState(false);
+
+  // Handler for downloading history report
+  const handleDownloadHistory = async () => {
+    setIsDownloadingHistory(true);
+    try {
+      const token = await getAuthToken();
+      const baseUrl = process.env.NODE_ENV === 'production'
+        ? 'https://api.protocolo.evilsoft.net'
+        : 'http://localhost:8080';
+
+      const response = await fetch(`${baseUrl}/reports/history`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao baixar relatório: ${response.status}`);
+      }
+
+      // Get the blob from response
+      const blob = await response.blob();
+
+      // Create a download link and trigger it
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `historico_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download concluído",
+        description: "O relatório de histórico foi baixado com sucesso.",
+      });
+    } catch (error) {
+      console.error('Erro ao baixar histórico:', error);
+      toast({
+        title: "Erro no download",
+        description: "Não foi possível baixar o relatório. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingHistory(false);
+    }
+  };
 
   useEffect(() => {
     loadDashboardDocuments();
@@ -901,6 +954,18 @@ export default function DashboardPage() {
         </TabsContent>
 
         <TabsContent value="history" className="space-y-3">
+          {/* Export button */}
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadHistory}
+              disabled={isDownloadingHistory || filteredHistory.length === 0}
+            >
+              <Download className={`h-4 w-4 mr-2 ${isDownloadingHistory ? 'animate-pulse' : ''}`} />
+              {isDownloadingHistory ? 'Baixando...' : 'Exportar'}
+            </Button>
+          </div>
           {filteredHistory.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
               <div className="h-10 w-10 mx-auto mb-2 opacity-20 flex items-center justify-center rounded-full border-2 border-dashed">
