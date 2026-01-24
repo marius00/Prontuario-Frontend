@@ -12,6 +12,7 @@ import { Search, Inbox, Send, Truck, Upload, RefreshCw, Archive, History, Messag
 import { useToast } from '@/hooks/use-toast';
 import { getAuthToken } from '@/lib/indexedDb';
 import {DocumentStatus, DashboardDocument, Document} from "@/lib/types.ts";
+import * as XLSX from 'xlsx';
 
 export default function DashboardPage() {
   const { currentUser, dashboardDocuments, loadDashboardDocuments, receiveDocument, dispatchDocument, cancelDispatch, rejectDocument, editDocument, undoLastAction, sectors, events, bulkDispatchDocuments, users, acceptDocument, acceptDocuments, rejectDocumentInbox, cancelSentDocument, cancelRequest, loadSectors } = useApp();
@@ -22,6 +23,10 @@ export default function DashboardPage() {
   const [showBulkSendDialog, setShowBulkSendDialog] = useState(false);
   const [bulkTargetSectorId, setBulkTargetSectorId] = useState<string>('');
   
+  // History tab multi-select state
+  const [selectModeHistory, setSelectModeHistory] = useState(false);
+  const [selectedHistoryDocs, setSelectedHistoryDocs] = useState<Set<string>>(new Set());
+
   // Pull-to-refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
@@ -75,39 +80,97 @@ export default function DashboardPage() {
   const handleDownloadHistory = async () => {
     setIsDownloadingHistory(true);
     try {
-      const token = await getAuthToken();
-      const baseUrl = process.env.NODE_ENV === 'production'
-        ? 'https://api.protocolo.evilsoft.net'
-        : 'http://localhost:8080';
+      // If in multi-select mode with selected items, generate Excel on frontend
+      if (selectModeHistory && selectedHistoryDocs.size > 0) {
+        const historyDocs = dashboardDocuments?.history || [];
+        const selectedDocsData = historyDocs.filter(doc => selectedHistoryDocs.has(doc.id.toString()));
 
-      const response = await fetch(`${baseUrl}/reports/history`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+        // Prepare data for Excel
+        const excelData = selectedDocsData.map(doc => {
+          // Find CREATED action for createdAt date
+          const createdEvent = doc.history?.find(h => h.action === 'CREATED');
+          const createdAtDate = createdEvent?.dateTime ? new Date(createdEvent.dateTime) : null;
+          const intakeAtDate = doc.intakeAt ? new Date(doc.intakeAt) : null;
 
-      if (!response.ok) {
-        throw new Error(`Erro ao baixar relatório: ${response.status}`);
+          // Format dates as dd/mm/yyyy
+          const formatDate = (date: Date | null) => {
+            if (!date || isNaN(date.getTime())) return '';
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+          };
+
+          return {
+            'Número': doc.number,
+            'Nome': doc.name,
+            'Tipo': doc.type,
+            'Data de Entrada': formatDate(intakeAtDate),
+            'Data de Criação': formatDate(createdAtDate)
+          };
+        });
+
+        // Create workbook and worksheet
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Histórico');
+
+        // Generate and download file
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `historico_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        toast({
+          title: "Download concluído",
+          description: `Exportados ${selectedDocsData.length} documento(s) selecionado(s).`,
+        });
+
+        // Reset selection mode
+        setSelectedHistoryDocs(new Set());
+        setSelectModeHistory(false);
+      } else {
+        // Download from backend
+        const token = await getAuthToken();
+        const baseUrl = process.env.NODE_ENV === 'production'
+          ? 'https://api.protocolo.evilsoft.net'
+          : 'http://localhost:8080';
+
+        const response = await fetch(`${baseUrl}/reports/history`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erro ao baixar relatório: ${response.status}`);
+        }
+
+        // Get the blob from response
+        const blob = await response.blob();
+
+        // Create a download link and trigger it
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `historico_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        toast({
+          title: "Download concluído",
+          description: "O relatório de histórico foi baixado com sucesso.",
+        });
       }
-
-      // Get the blob from response
-      const blob = await response.blob();
-
-      // Create a download link and trigger it
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `historico_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: "Download concluído",
-        description: "O relatório de histórico foi baixado com sucesso.",
-      });
     } catch (error) {
       console.error('Erro ao baixar histórico:', error);
       toast({
@@ -398,6 +461,16 @@ export default function DashboardPage() {
       newSelected.delete(docId);
     }
     setSelectedDocs(newSelected);
+  };
+
+  const handleSelectHistoryDocument = (docId: string, checked: boolean) => {
+    const newSelected = new Set(selectedHistoryDocs);
+    if (checked) {
+      newSelected.add(docId);
+    } else {
+      newSelected.delete(docId);
+    }
+    setSelectedHistoryDocs(newSelected);
   };
 
   const handleBulkSend = async () => {
@@ -954,17 +1027,46 @@ export default function DashboardPage() {
         </TabsContent>
 
         <TabsContent value="history" className="space-y-3">
-          {/* Export button */}
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadHistory}
-              disabled={isDownloadingHistory || filteredHistory.length === 0}
-            >
-              <Download className={`h-4 w-4 mr-2 ${isDownloadingHistory ? 'animate-pulse' : ''}`} />
-              {isDownloadingHistory ? 'Baixando...' : 'Exportar'}
-            </Button>
+          {/* Multi-select toggle and Export button */}
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              {filteredHistory.length > 1 && (
+                <Button
+                  onClick={() => {
+                    setSelectModeHistory(!selectModeHistory);
+                    setSelectedHistoryDocs(new Set());
+                  }}
+                  variant={selectModeHistory ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                >
+                  {selectModeHistory ? 'Cancelar Seleção' : 'Selecionar Múltiplos'}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadHistory}
+                disabled={isDownloadingHistory || filteredHistory.length === 0 || (selectModeHistory && selectedHistoryDocs.size === 0)}
+                className={selectModeHistory && selectedHistoryDocs.size > 0 ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+              >
+                <Download className={`h-4 w-4 mr-2 ${isDownloadingHistory ? 'animate-pulse' : ''}`} />
+                {isDownloadingHistory ? 'Baixando...' : selectModeHistory && selectedHistoryDocs.size > 0 ? `Exportar (${selectedHistoryDocs.size})` : 'Exportar'}
+              </Button>
+            </div>
+            {selectModeHistory && (
+              <div className="flex justify-start">
+                <button
+                  onClick={() => {
+                    const allDocIds = filteredHistory.map(doc => doc.id.toString());
+                    setSelectedHistoryDocs(new Set(allDocIds));
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-800 underline"
+                >
+                  Selecionar todos ({filteredHistory.length})
+                </button>
+              </div>
+            )}
           </div>
           {filteredHistory.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
@@ -987,6 +1089,9 @@ export default function DashboardPage() {
                   sectors={sectors}
                   events={events}
                   users={users}
+                  selectMode={selectModeHistory}
+                  isSelected={selectedHistoryDocs.has(adaptedDoc.id)}
+                  onSelect={handleSelectHistoryDocument}
                 />
               );
             })
