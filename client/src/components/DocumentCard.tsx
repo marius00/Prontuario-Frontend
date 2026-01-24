@@ -182,12 +182,12 @@ export function DocumentCard({ doc, patientName, patientAtendimento, showActions
           <p className="text-sm font-medium text-foreground">{patientName}</p>
           {getReceivedInfo() && (
             <div className="text-xs text-muted-foreground">
-              Recebido por {getReceivedInfo()!.sector}, {getReceivedInfo()!.user}, {format(new Date(getReceivedInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
+              Recebido por {getReceivedInfo()!.sector}, {getReceivedInfo()!.user}, {format(new Date(getReceivedInfo()!.timestamp), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
             </div>
           )}
           {getSentInfo() && (
             <div className="text-xs text-muted-foreground">
-              Enviado por {getSentInfo()!.fromSector}, {getSentInfo()!.user}, {format(new Date(getSentInfo()!.timestamp), 'dd/MM HH:mm', { locale: ptBR })}
+              Enviado por {getSentInfo()!.fromSector}, {getSentInfo()!.user}, {format(new Date(getSentInfo()!.timestamp), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
             </div>
           )}
           {doc.status === 'in-transit' && getMostRecentDispatchedEvent() && (

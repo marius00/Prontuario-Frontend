@@ -492,7 +492,7 @@ export default function SearchPage() {
                   <div className="flex justify-between items-start mb-1">
                     <span className="text-sm font-semibold">{translateAction(event.action)}</span>
                     <span className="text-xs text-muted-foreground font-mono">
-                      {format(new Date(event.dateTime), 'dd/MM HH:mm', { locale: ptBR })}
+                      {format(new Date(event.dateTime), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
