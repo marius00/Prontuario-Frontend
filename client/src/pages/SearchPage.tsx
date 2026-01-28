@@ -444,8 +444,8 @@ export default function SearchPage() {
               createdByUserId: doc.createdBy,
               lastDispatchedBySectorId: doc.lastDispatchedBySectorId || undefined
             };
-            const isCreator = currentUser && doc.createdBy === currentUser.username;
             const isAdmin = currentUser && currentUser.role.toLowerCase() === 'admin';
+            const isCreator = currentUser && doc.createdBy === currentUser.username || isAdmin;
             return (
               <div key={doc.id} className="relative">
                 <DocumentCard
