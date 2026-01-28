@@ -120,8 +120,8 @@ export default function RegisterPage() {
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Ficha">Ficha</SelectItem>
                     <SelectItem value="Prontuario">Prontuário</SelectItem>
+                    <SelectItem value="Ficha">Ficha</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
